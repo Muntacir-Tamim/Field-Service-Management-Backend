@@ -16,7 +16,6 @@ model User {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  // Profile relations — exactly one will be set depending on role
   customer    Customer?
   technician  Technician?
   manager     Manager?

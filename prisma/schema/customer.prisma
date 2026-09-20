@@ -1,7 +1,5 @@
 model Customer {
   id            String    @id @default(uuid())
-  name          String
-  email         String    @unique
   contactNumber String?
   gender        Gender?
   address       String?
@@ -17,7 +15,6 @@ model Customer {
   serviceRequests ServiceRequest[]
   feedbacks       CustomerFeedback[]
 
-  @@index([email], name: "idx_customer_email")
   @@index([isDeleted], name: "idx_customer_isDeleted")
   @@map("customers")
 }

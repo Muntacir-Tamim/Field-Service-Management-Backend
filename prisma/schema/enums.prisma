@@ -37,6 +37,7 @@ enum ServiceRequestStatus {
   REJECTED
 }
 
+
 // Work Order state machine
 // CREATED → DISPATCHED → TECHNICIAN_EN_ROUTE → ARRIVED → WORK_STARTED → WORK_COMPLETED → VERIFIED → CLOSED
 enum WorkOrderStatus {

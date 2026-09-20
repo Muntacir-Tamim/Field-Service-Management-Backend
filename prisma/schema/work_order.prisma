@@ -3,7 +3,7 @@ model WorkOrder {
   status             WorkOrderStatus @default(CREATED)
   problemFound       String?
   workDescription    String?
-  partsUsed          Json?           // [{ name: "Filter", qty: 2, unitCost: 500 }]
+  partsUsed          Json?          
   laborHours         Decimal?        @db.Decimal(5, 2)
   completionNotes    String?
   completionImageUrl String?
@@ -14,13 +14,13 @@ model WorkOrder {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  // Technician is accessed via assignment.technician — no direct FK needed
+  
   assignmentId String     @unique
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   serviceReport ServiceReport?
   invoice       Invoice?
-  attachments   Attachment[]
+  attachments   WorkOrderAttachment[]
 
   @@index([status], name: "idx_wo_status")
   @@map("work_orders")
@@ -31,7 +31,7 @@ model ServiceReport {
   summary         String
   findings        String
   recommendations String?
-  reportUrl       String?  // Cloudinary PDF URL
+  reportUrl       String?  
   reportPublicId  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -40,4 +40,20 @@ model ServiceReport {
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("service_reports")
+}
+
+
+model WorkOrderAttachment {
+  id          String    @id @default(uuid())
+  url         String
+  publicId    String    
+  fileType    String    
+  fileName    String?
+  createdAt   DateTime  @default(now())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([workOrderId], name: "idx_wo_attachment_woId")
+  @@map("work_order_attachments")
 }

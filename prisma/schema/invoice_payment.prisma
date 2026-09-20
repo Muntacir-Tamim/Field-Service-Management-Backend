@@ -1,7 +1,5 @@
 model Invoice {
   id          String        @id @default(uuid())
-  // invoiceNo is generated at application layer: e.g. `INV-${Date.now()}`
-  // cuid() is deprecated in Prisma 5+ so we set this from service layer
   invoiceNo   String        @unique
   status      InvoiceStatus @default(DRAFT)
   subtotal    Decimal       @db.Decimal(10, 2)
@@ -18,6 +16,9 @@ model Invoice {
   workOrderId String    @unique
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+  financeUserId String?
+  financeUser   FinanceUser? @relation(fields: [financeUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
   payment Payment?
 
   @@index([status], name: "idx_invoice_status")
@@ -30,7 +31,7 @@ model Payment {
   method          PaymentMethod @default(CASH)
   amount          Decimal       @db.Decimal(10, 2)
   currency        String        @default("BDT")
-  transactionId   String?       @unique  // bKash/Nagad TrxID
+  transactionId   String?       @unique // bKash/Nagad TrxID
   payerReference  String?               // user email or phone
   gatewayResponse Json?
   refundAmount    Decimal?      @db.Decimal(10, 2)
