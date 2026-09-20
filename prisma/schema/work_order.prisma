@@ -1,0 +1,43 @@
+model WorkOrder {
+  id                 String          @id @default(uuid())
+  status             WorkOrderStatus @default(CREATED)
+  problemFound       String?
+  workDescription    String?
+  partsUsed          Json?           // [{ name: "Filter", qty: 2, unitCost: 500 }]
+  laborHours         Decimal?        @db.Decimal(5, 2)
+  completionNotes    String?
+  completionImageUrl String?
+  completionPublicId String?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  verifiedAt         DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  // Technician is accessed via assignment.technician — no direct FK needed
+  assignmentId String     @unique
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  serviceReport ServiceReport?
+  invoice       Invoice?
+  attachments   Attachment[]
+
+  @@index([status], name: "idx_wo_status")
+  @@map("work_orders")
+}
+
+model ServiceReport {
+  id              String   @id @default(uuid())
+  summary         String
+  findings        String
+  recommendations String?
+  reportUrl       String?  // Cloudinary PDF URL
+  reportPublicId  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workOrderId String    @unique
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("service_reports")
+}

@@ -1,0 +1,23 @@
+model Assignment {
+  id             String    @id @default(uuid())
+  scheduledStart DateTime
+  scheduledEnd   DateTime
+  actualStart    DateTime?
+  actualEnd      DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  serviceRequestId String         @unique
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  workOrder WorkOrder?
+
+  @@unique([technicianId, scheduledStart, scheduledEnd], name: "unique_technician_slot")
+  @@index([technicianId], name: "idx_assignment_technicianId")
+  @@index([scheduledStart], name: "idx_assignment_scheduledStart")
+  @@map("assignments")
+}

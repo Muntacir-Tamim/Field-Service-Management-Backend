@@ -1,0 +1,31 @@
+model ServiceRequest {
+  id              String               @id @default(uuid())
+  title           String
+  description     String
+  priority        Priority             @default(MEDIUM)
+  status          ServiceRequestStatus @default(PENDING)
+  preferredDate   DateTime?
+  address         String
+  city            String
+  rejectionReason String?
+  reviewedAt      DateTime?
+  isDeleted       Boolean              @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  managerId String?
+  manager   Manager? @relation(fields: [managerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  attachments Attachment[]
+  assignment  Assignment?
+  feedback    CustomerFeedback?
+
+  @@index([status], name: "idx_sr_status")
+  @@index([customerId], name: "idx_sr_customerId")
+  @@index([priority], name: "idx_sr_priority")
+  @@map("service_requests")
+}

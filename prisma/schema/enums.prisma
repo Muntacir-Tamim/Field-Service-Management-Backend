@@ -1,0 +1,109 @@
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  TECHNICIAN
+  CUSTOMER
+  FINANCE
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AuthProvider {
+  GOOGLE
+  CREDENTIAL
+}
+
+// Service Request lifecycle - state machine
+// PENDING → UNDER_REVIEW → ASSIGNED → SCHEDULED → IN_PROGRESS → COMPLETED
+enum ServiceRequestStatus {
+  PENDING
+  UNDER_REVIEW
+  ASSIGNED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+// Work Order state machine
+// CREATED → DISPATCHED → TECHNICIAN_EN_ROUTE → ARRIVED → WORK_STARTED → WORK_COMPLETED → VERIFIED → CLOSED
+enum WorkOrderStatus {
+  CREATED
+  DISPATCHED
+  TECHNICIAN_EN_ROUTE
+  ARRIVED
+  WORK_STARTED
+  WORK_COMPLETED
+  VERIFIED
+  CLOSED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  BKASH
+  NAGAD
+  CARD
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  EXPERT
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+enum TechnicianVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

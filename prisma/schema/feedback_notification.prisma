@@ -1,0 +1,54 @@
+model CustomerFeedback {
+  id        String   @id @default(uuid())
+  rating    Int      // 1 to 5
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  // @unique ensures exactly one feedback per service request
+  serviceRequestId String         @unique
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([customerId], name: "idx_feedback_customerId")
+  @@map("customer_feedbacks")
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  type      NotificationType
+  status    NotificationStatus @default(PENDING)
+  title     String
+  message   String
+  data      Json?              // Extra metadata, e.g. { workOrderId: "..." }
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId], name: "idx_notification_userId")
+  @@index([status], name: "idx_notification_status")
+  @@map("notifications")
+}
+
+
+model Attachment {
+  id        String   @id @default(uuid())
+  url       String
+  publicId  String   // Cloudinary public ID for deletion
+  fileType  String   // e.g. "image/jpeg", "application/pdf"
+  fileName  String?
+  createdAt DateTime @default(now())
+
+  serviceRequestId String?
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  workOrderId String?
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("attachments")
+}
