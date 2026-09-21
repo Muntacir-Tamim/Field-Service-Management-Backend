@@ -3,7 +3,6 @@ model WorkOrder {
   status             WorkOrderStatus @default(CREATED)
   problemFound       String?
   workDescription    String?
-  partsUsed          Json?          
   laborHours         Decimal?        @db.Decimal(5, 2)
   completionNotes    String?
   completionImageUrl String?
@@ -14,10 +13,10 @@ model WorkOrder {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  
   assignmentId String     @unique
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+  parts         WorkOrderPart[]
   serviceReport ServiceReport?
   invoice       Invoice?
   attachments   WorkOrderAttachment[]
@@ -26,12 +25,28 @@ model WorkOrder {
   @@map("work_orders")
 }
 
+model WorkOrderPart {
+  id          String   @id @default(uuid())
+  name        String
+  quantity    Int      @default(1)
+  unitCost    Decimal  @db.Decimal(10, 2)
+  totalCost   Decimal  @db.Decimal(10, 2)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([workOrderId], name: "idx_wo_part_workOrderId")
+  @@map("work_order_parts")
+}
+
 model ServiceReport {
   id              String   @id @default(uuid())
   summary         String
   findings        String
   recommendations String?
-  reportUrl       String?  
+  reportUrl       String?
   reportPublicId  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -42,12 +57,11 @@ model ServiceReport {
   @@map("service_reports")
 }
 
-
 model WorkOrderAttachment {
   id          String    @id @default(uuid())
   url         String
-  publicId    String    
-  fileType    String    
+  publicId    String
+  fileType    String
   fileName    String?
   createdAt   DateTime  @default(now())
 

@@ -24,8 +24,6 @@ enum AuthProvider {
   CREDENTIAL
 }
 
-// Service Request lifecycle - state machine
-// PENDING → UNDER_REVIEW → ASSIGNED → SCHEDULED → IN_PROGRESS → COMPLETED
 enum ServiceRequestStatus {
   PENDING
   UNDER_REVIEW
@@ -37,9 +35,6 @@ enum ServiceRequestStatus {
   REJECTED
 }
 
-
-// Work Order state machine
-// CREATED → DISPATCHED → TECHNICIAN_EN_ROUTE → ARRIVED → WORK_STARTED → WORK_COMPLETED → VERIFIED → CLOSED
 enum WorkOrderStatus {
   CREATED
   DISPATCHED
@@ -107,4 +102,11 @@ enum TechnicianVerificationStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum AssignmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
 }

@@ -19,10 +19,25 @@ model Invoice {
   financeUserId String?
   financeUser   FinanceUser? @relation(fields: [financeUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  payment Payment?
+  lineItems InvoiceItem[]
+  payment   Payment?
 
   @@index([status], name: "idx_invoice_status")
   @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid())
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  totalPrice  Decimal @db.Decimal(10, 2)
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([invoiceId], name: "idx_invoice_item_invoiceId")
+  @@map("invoice_items")
 }
 
 model Payment {
@@ -31,8 +46,8 @@ model Payment {
   method          PaymentMethod @default(CASH)
   amount          Decimal       @db.Decimal(10, 2)
   currency        String        @default("BDT")
-  transactionId   String?       @unique // bKash/Nagad TrxID
-  payerReference  String?               // user email or phone
+  transactionId   String?       @unique 
+  payerReference  String?               
   gatewayResponse Json?
   refundAmount    Decimal?      @db.Decimal(10, 2)
   refundReason    String?

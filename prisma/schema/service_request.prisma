@@ -21,7 +21,7 @@ model ServiceRequest {
   manager   Manager? @relation(fields: [managerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   attachments ServiceRequestAttachment[]
-  assignment  Assignment?
+  assignments Assignment[]
   feedback    CustomerFeedback?
 
   @@index([status], name: "idx_sr_status")
@@ -30,12 +30,11 @@ model ServiceRequest {
   @@map("service_requests")
 }
 
-
 model ServiceRequestAttachment {
   id               String         @id @default(uuid())
   url              String
-  publicId         String        
-  fileType         String         
+  publicId         String
+  fileType         String
   fileName         String?
   createdAt        DateTime       @default(now())
 
