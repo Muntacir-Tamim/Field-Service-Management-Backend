@@ -1,5 +1,7 @@
 model Customer {
   id            String    @id @default(uuid())
+  name          String
+  email         String       @unique
   contactNumber String?
   gender        Gender?
   address       String?
