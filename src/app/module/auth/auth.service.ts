@@ -18,7 +18,7 @@ import { TokenPayload } from "google-auth-library";
 import { googleClient } from "../../lib/googleAuth";
 
 const registerCustomer = async (payload: IRegisterCustomerPayload) => {
-  const { name, password } = payload;
+  const { name, password, customer: customerData } = payload;
   const email = payload.email.trim().toLowerCase();
 
   const isUserExists = await prisma.user.findUnique({
@@ -40,7 +40,11 @@ const registerCustomer = async (payload: IRegisterCustomerPayload) => {
       status: UserStatus.ACTIVE,
       emailVerified: false,
       customer: {
-        create: { name, email },
+        create: {
+          name,
+          email,
+          contactNumber: customerData?.contactNumber || "",
+        },
       },
     },
     omit: { password: true },
