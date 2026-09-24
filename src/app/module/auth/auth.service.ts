@@ -1,13 +1,17 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import ejs from "ejs";
+import type { TokenPayload } from "google-auth-library";
 import type { JwtPayload, SignOptions } from "jsonwebtoken";
+import path from "path";
 import {
   AuthProvider,
   Role,
   UserStatus,
 } from "../../../generated/prisma/enums";
 import config from "../../config";
+import { googleClient } from "../../lib/googleAuth";
+import { transporter } from "../../lib/nodemailer";
 import { prisma } from "../../lib/prisma";
 import { redisClient } from "../../lib/redis";
 import { jwtUtils } from "../../utils/jwt";
@@ -19,8 +23,6 @@ import type {
   IRequestUser,
   IResetPasswordPayload,
 } from "./auth.interface";
-import type { TokenPayload } from "google-auth-library";
-import { googleClient } from "../../lib/googleAuth";
 
 const registerCustomer = async (payload: IRegisterCustomerPayload) => {
   const { name, password, customer: customerData } = payload;
@@ -399,7 +401,7 @@ const forgotPassword = async (payload: IForgotPasswordPayload) => {
     from: config.email_sender,
     to: isUserExist.email,
     subject: "Forgot Password",
-    // text : `Your OTP is ${otp}`
+    //text: `Your OTP is ${otp}`,
     // html: `<h1>Your OTP is ${otp}</h1>`
     html,
   });
