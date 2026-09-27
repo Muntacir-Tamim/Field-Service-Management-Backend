@@ -1,10 +1,16 @@
+// ============================================================
+// ENUMS — Field Service Management System
+// Template: PH Healthcare Project
+// ============================================================
+
+// ------ User & Auth ------
+
 enum Role {
   SUPER_ADMIN
   ADMIN
-  MANAGER
-  TECHNICIAN
-  CUSTOMER
-  FINANCE
+  MANAGER    // reviews service requests, assigns technicians
+  TECHNICIAN // does the actual field work
+  CUSTOMER   // raises service requests
 }
 
 enum UserStatus {
@@ -24,37 +30,40 @@ enum AuthProvider {
   CREDENTIAL
 }
 
+// ------ Core Workflow State Machines ------
+
+// Step 1-3 in workflow: Customer → Service Request → Manager Review
+// PENDING → UNDER_REVIEW → APPROVED → REJECTED | CANCELLED
 enum ServiceRequestStatus {
-  PENDING
-  UNDER_REVIEW
-  ASSIGNED
-  SCHEDULED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-  REJECTED
+  PENDING       // customer just submitted
+  UNDER_REVIEW  // manager is reviewing
+  APPROVED      // manager approved, ready for assignment
+  REJECTED      // manager rejected
+  CANCELLED     // customer cancelled
+  COMPLETED     // entire workflow done
 }
 
+// Step 4 in workflow: Technician Assignment
+// PENDING → CONFIRMED → CANCELLED
+enum AssignmentStatus {
+  PENDING    // technician assigned, not yet confirmed
+  CONFIRMED  // technician confirmed the visit
+  CANCELLED  // cancelled — reschedule creates a new Assignment
+}
+
+// Step 5-9 in workflow: Schedule Visit → Work Completed
+// SCHEDULED → IN_PROGRESS → COMPLETED → VERIFIED
 enum WorkOrderStatus {
-  CREATED
-  DISPATCHED
-  TECHNICIAN_EN_ROUTE
-  ARRIVED
-  WORK_STARTED
-  WORK_COMPLETED
-  VERIFIED
-  CLOSED
-}
-
-enum InvoiceStatus {
-  DRAFT
-  SENT
-  PAID
-  OVERDUE
+  SCHEDULED           // visit is scheduled
+  TECHNICIAN_EN_ROUTE // technician is on the way
+  ARRIVED             // technician arrived at location
+  IN_PROGRESS         // work has started
+  COMPLETED           // work is done by technician
+  VERIFIED            // manager verified and closed
   CANCELLED
-  REFUNDED
 }
 
+// Step 10 in workflow: Invoice / Payment
 enum PaymentStatus {
   UNPAID
   PAID
@@ -71,6 +80,8 @@ enum PaymentMethod {
   CARD
 }
 
+// ------ Supporting Enums ------
+
 enum Priority {
   LOW
   MEDIUM
@@ -84,29 +95,8 @@ enum SkillLevel {
   EXPERT
 }
 
-enum NotificationType {
-  EMAIL
-  SMS
-  PUSH
-  IN_APP
-}
-
-enum NotificationStatus {
-  PENDING
-  SENT
-  FAILED
-  READ
-}
-
 enum TechnicianVerificationStatus {
   PENDING
   APPROVED
   REJECTED
-}
-
-enum AssignmentStatus {
-  PENDING
-  ACTIVE
-  COMPLETED
-  CANCELLED
 }

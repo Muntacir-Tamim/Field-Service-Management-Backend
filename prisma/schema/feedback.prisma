@@ -1,0 +1,39 @@
+// ============================================================
+// CUSTOMER FEEDBACK — Step 11 (final step of workflow)
+// Template: PH Healthcare — no direct equivalent,
+//           but same pattern as Appointment.patientId + doctorId
+//
+// Workflow:
+//   Invoice/Payment → Customer Feedback
+//
+// Design decision:
+//   technicianId is NOT stored directly here.
+//   Reason: ServiceRequest → Assignment → Technician chain already exists.
+//   Storing technicianId again creates redundancy and risks inconsistency.
+//   To get the technician: serviceRequest.assignments.find(CONFIRMED).technician
+//
+//   (Your original schema stored technicianId directly — removed here)
+// ============================================================
+
+model CustomerFeedback {
+  id        String   @id @default(uuid())
+  rating    Int      // 1 to 5
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // who gave the feedback
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  // which service request this feedback is for (one feedback per request)
+  serviceRequestId String         @unique
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  // Note: to get the technician who did the work:
+  // serviceRequest.assignments (where status = CONFIRMED) → technician
+  // No direct technicianId here — avoids redundancy
+
+  @@index([customerId], name: "idx_feedback_customerId")
+  @@map("customer_feedbacks")
+}
