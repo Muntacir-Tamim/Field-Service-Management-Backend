@@ -12,6 +12,8 @@
 // Healthcare template: Patient model
 model Customer {
   id            String    @id @default(uuid())
+  name          String
+  email         String       @unique
   contactNumber String?
   gender        Gender?
   address       String?
@@ -37,6 +39,8 @@ model Customer {
 // reviewedBy audit field = Doctor.reviewedBy
 model Technician {
   id                 String                       @id @default(uuid())
+  name               String
+  email              String       @unique
   contactNumber      String?
   gender             Gender?
   address            String?
@@ -57,6 +61,7 @@ model Technician {
 
   skills      TechnicianSkill[]  // what work can this technician do
   assignments Assignment[]       // Step 4-5
+//   feedbacks   CustomerFeedback[] // Step 11
 
   @@index([isAvailable], name: "idx_technician_isAvailable")
   @@index([verificationStatus], name: "idx_technician_verificationStatus")
@@ -98,6 +103,8 @@ model TechnicianSkill {
 // One model, Role enum handles the distinction
 model Manager {
   id            String    @id @default(uuid())
+  name          String
+  email         String       @unique
   contactNumber String?
   department    String?
   isDeleted     Boolean   @default(false)
