@@ -6,6 +6,7 @@ import { redisClient } from "./app/lib/redis";
 import {
   seedSuperAdmin,
   seedTesterAdmin,
+  seedTesterManager,
   seedTesterTechnician,
 } from "./app/utils/seed";
 
@@ -25,6 +26,7 @@ const main = async () => {
     await seedSuperAdmin();
     await seedTesterAdmin();
     await seedTesterTechnician();
+    await seedTesterManager();
 
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
