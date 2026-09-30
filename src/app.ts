@@ -15,6 +15,9 @@ import { AuthRoutes } from "./app/module/auth/auth.route";
 import { UserRoutes } from "./app/module/user/user.route";
 import { PaymentRoutes } from "./app/module/payment/payment.route";
 import { ServiceRequestRoutes } from "./app/module/service-request/service-request.route";
+import { AssignmentRoutes } from "./app/module/assignment/Assignment.route";
+import { TechnicianRoutes } from "./app/module/technician/Technician.route";
+import { SkillRoutes } from "./app/module/skill/Skill.route";
 
 const app: Application = express();
 
@@ -36,6 +39,9 @@ app.use("/api/v1/auth", AuthRoutes);
 app.use("/api/v1/user", UserRoutes);
 app.use("/api/v1/service-requests", ServiceRequestRoutes);
 app.use("/api/v1/payment", PaymentRoutes);
+app.use("/api/v1/assignments", AssignmentRoutes);
+app.use("/api/v1/technicians", TechnicianRoutes);
+app.use("/api/v1/skills", SkillRoutes);
 
 app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
   try {

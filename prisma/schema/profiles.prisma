@@ -51,6 +51,12 @@ model Technician {
   reviewedBy         String?   // manager userId — audit trail
   reviewedAt         DateTime?
   isAvailable        Boolean   @default(true)
+
+  // application documents (same idea as Doctor.resume / additionalFiles)
+  resumeUrl          String?
+  resumePublicId     String?
+  documents          Json?     // [{ url, publicId }] — NID, certificates etc.
+
   isDeleted          Boolean   @default(false)
   deletedAt          DateTime?
   createdAt          DateTime  @default(now())
