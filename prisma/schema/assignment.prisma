@@ -26,6 +26,10 @@ model Assignment {
   actualStart    DateTime?        // Step 6 — when technician actually started
   actualEnd      DateTime?        // Step 8 — when work actually ended
   notes          String?          // dispatcher notes
+  confirmedAt    DateTime?        // when technician confirmed
+  cancelledAt    DateTime?
+  cancelReason   String?
+  cancelledBy    String?          // userId of whoever cancelled / rescheduled
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -40,9 +44,8 @@ model Assignment {
   // Step 5 onwards — work order is created when assignment is CONFIRMED
   workOrder WorkOrder?
 
-  // A technician cannot have two PENDING/CONFIRMED assignments at the same time slot
-  // Healthcare equivalent: @@unique([patientId, doctorId, scheduleId]) on Appointment
-  @@unique([technicianId, scheduledStart, scheduledEnd, status], name: "unique_technician_slot")
+  // NOTE: overlap protection is done by a Postgres EXCLUDE constraint
+  // (see migration SQL) + a check inside the service. Prisma cannot express it.
 
   @@index([serviceRequestId], name: "idx_assignment_serviceRequestId")
   @@index([technicianId],     name: "idx_assignment_technicianId")
