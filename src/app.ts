@@ -18,6 +18,7 @@ import { ServiceRequestRoutes } from "./app/module/service-request/service-reque
 import { AssignmentRoutes } from "./app/module/assignment/Assignment.route";
 import { TechnicianRoutes } from "./app/module/technician/Technician.route";
 import { SkillRoutes } from "./app/module/skill/Skill.route";
+import { WorkOrderRoutes } from "./app/module/work-order/work-order.route";
 
 const app: Application = express();
 
@@ -42,6 +43,7 @@ app.use("/api/v1/payment", PaymentRoutes);
 app.use("/api/v1/assignments", AssignmentRoutes);
 app.use("/api/v1/technicians", TechnicianRoutes);
 app.use("/api/v1/skills", SkillRoutes);
+app.use("/api/v1/work-orders", WorkOrderRoutes);
 
 app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
   try {
