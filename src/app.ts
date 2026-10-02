@@ -20,6 +20,7 @@ import { TechnicianRoutes } from "./app/module/technician/Technician.route";
 import { SkillRoutes } from "./app/module/skill/Skill.route";
 import { WorkOrderRoutes } from "./app/module/work-order/work-order.route";
 import { PaymentRoutes } from "./app/module/payment/payment.route";
+import { FeedbackRoutes } from "./app/module/feedback/feedback.route";
 
 const app: Application = express();
 
@@ -45,29 +46,30 @@ app.use("/api/v1/assignments", AssignmentRoutes);
 app.use("/api/v1/technicians", TechnicianRoutes);
 app.use("/api/v1/skills", SkillRoutes);
 app.use("/api/v1/work-orders", WorkOrderRoutes);
+app.use("/api/v1/feedbacks", FeedbackRoutes);
 
-app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    // 100000 > 999999 > 1000000
-    const otp = crypto.randomInt(100000, 1000000); // 1, 2, 3, 4, 5, 6,7,8 ,9, 10 => X-11
+// app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     // 100000 > 999999 > 1000000
+//     const otp = crypto.randomInt(100000, 1000000); // 1, 2, 3, 4, 5, 6,7,8 ,9, 10 => X-11
 
-    // await redisClient.set("forgot-password-otp:patient1@gmail.com", "123456", {
-    // 	expiration : {
-    // 		type : "EX",
-    // 		value : 60
-    // 	}
-    // })
+//     // await redisClient.set("forgot-password-otp:patient1@gmail.com", "123456", {
+//     // 	expiration : {
+//     // 		type : "EX",
+//     // 		value : 60
+//     // 	}
+//     // })
 
-    res.status(httpStatus.OK).json({
-      success: true,
-      message: "Welcome to PH Healthcare System Backend",
-      data: otp,
-    });
-  } catch (error) {
-    console.log(error);
-    next(error);
-  }
-});
+//     res.status(httpStatus.OK).json({
+//       success: true,
+//       message: "Welcome to PH Healthcare System Backend",
+//       data: otp,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     next(error);
+//   }
+// });
 
 // Basic route
 app.get("/", async (req: Request, res: Response) => {
@@ -77,7 +79,7 @@ app.get("/", async (req: Request, res: Response) => {
   });
 });
 
-app.use(globalErrorHandler);
 app.use(notFound);
+app.use(globalErrorHandler);
 
 export default app;
