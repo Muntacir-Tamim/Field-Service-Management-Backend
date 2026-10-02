@@ -13,12 +13,13 @@ import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
 import { AuthRoutes } from "./app/module/auth/auth.route";
 import { UserRoutes } from "./app/module/user/user.route";
-import { PaymentRoutes } from "./app/module/payment/payment.route";
+
 import { ServiceRequestRoutes } from "./app/module/service-request/service-request.route";
 import { AssignmentRoutes } from "./app/module/assignment/Assignment.route";
 import { TechnicianRoutes } from "./app/module/technician/Technician.route";
 import { SkillRoutes } from "./app/module/skill/Skill.route";
 import { WorkOrderRoutes } from "./app/module/work-order/work-order.route";
+import { PaymentRoutes } from "./app/module/payment/payment.route";
 
 const app: Application = express();
 

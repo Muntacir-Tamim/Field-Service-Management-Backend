@@ -43,4 +43,6 @@ export default {
   bkash_app_key: process.env.BKASH_APP_KEY!,
   bkash_app_secret: process.env.BKASH_APP_SECRET!,
   bkash_callback_url: process.env.BKASH_CALLBACK_URL!,
+  labor_rate_per_hour: Number(process.env.LABOR_RATE_PER_HOUR ?? 500),
+  tax_rate_percent: Number(process.env.TAX_RATE_PERCENT ?? 0),
 };
