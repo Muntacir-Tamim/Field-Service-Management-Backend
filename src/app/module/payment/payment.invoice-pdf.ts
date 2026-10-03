@@ -3,7 +3,6 @@ import type { Response } from "express";
 import PDFDocument from "pdfkit";
 import { InvoiceView } from "./payment.service";
 
-// Helvetica has no "৳" glyph, so amounts are written as "BDT 1,200.00"
 const bdt = (value: string) =>
   `BDT ${Number(value).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -25,7 +24,6 @@ export const streamInvoicePdf = (invoice: InvoiceView, res: Response) => {
   const left = 50;
   const right = 545;
 
-  // header
   doc.fontSize(22).font("Helvetica-Bold").text("INVOICE", left, 50);
   doc
     .fontSize(10)
@@ -43,7 +41,6 @@ export const streamInvoicePdf = (invoice: InvoiceView, res: Response) => {
     });
   }
 
-  // bill to / job
   doc.moveDown(2);
   const topY = doc.y;
   doc.font("Helvetica-Bold").fontSize(11).text("Bill To", left, topY);
@@ -62,7 +59,6 @@ export const streamInvoicePdf = (invoice: InvoiceView, res: Response) => {
     .text(`${request.address}, ${request.city}`, 300)
     .text(`Technician: ${invoice.workOrder.assignment.technician.name}`, 300);
 
-  // table helper
   doc.moveDown(3);
   let y = Math.max(doc.y, topY + 90);
 
@@ -104,7 +100,6 @@ export const streamInvoicePdf = (invoice: InvoiceView, res: Response) => {
     bdt(invoice.breakdown.laborCost),
   ]);
 
-  // totals
   y += 10;
   doc.moveTo(300, y).lineTo(right, y).stroke();
   y += 10;

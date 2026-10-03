@@ -1,56 +1,29 @@
-// ============================================================
-// WORK ORDER — Step 5 through 9 of workflow
-// Template: PH Healthcare → Appointment (status fields) + recordUrl
-//
-// Workflow:
-//   Schedule Visit → Technician Arrives → Work Started
-//   → Work Completed → (Invoice)
-//
-// Healthcare parallel:
-//   Appointment.joiningTime   → WorkOrder.startedAt
-//   Appointment.recordUrl     → WorkOrder.completionImageUrl
-//   Appointment.status        → WorkOrder.status (state machine)
-//
-// WorkOrder is created when Assignment is CONFIRMED.
-// WorkOrder status drives the technician's live updates (Steps 5-9).
-// ============================================================
-
 model WorkOrder {
   id                 String          @id @default(uuid())
   status             WorkOrderStatus @default(SCHEDULED)
 
-  // Step 7 — technician fills this when work starts
   problemFound    String?
   workDescription String?
 
-  // Step 8 — technician fills this when work is done
   laborHours         Decimal? @db.Decimal(5, 2)
   completionNotes    String?
-  completionImageUrl String?  // proof of work — same as Appointment.recordUrl
+  completionImageUrl String?  
   completionPublicId String?
 
-  // timestamps for each stage of the state machine
-  startedAt   DateTime? // IN_PROGRESS
-  completedAt DateTime? // COMPLETED
-  verifiedAt  DateTime? // VERIFIED (manager closes the work order)
+  startedAt   DateTime? 
+  completedAt DateTime? 
+  verifiedAt  DateTime? 
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // one work order per assignment
   assignmentId String     @unique
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  // parts used during the job (replaces partsUsed Json — now queryable)
   parts WorkOrderPart[]
-
-  // Step 9 — service report written after work is done
   serviceReport ServiceReport?
-
-  // Step 10 — invoice generated from this work order
   payment Payment?
 
-  // extra photos/files technician uploads during the job
   attachments WorkOrderAttachment[]
 
   @@index([status], name: "idx_wo_status")

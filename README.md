@@ -260,7 +260,7 @@ Copy `.env.example` to `.env`. **Never commit `.env`, and never put real secrets
 | `JWT_ACCESS_EXPIRES_IN`                                       | yes              | e.g. `1d`                                                                                    |
 | `JWT_REFRESH_EXPIRES_IN`                                      | yes              | e.g. `7d`                                                                                    |
 | `BCRYPT_SALT_ROUNDS`                                          | yes              | e.g. `10`                                                                                    |
-| `BACKEND_URL`                                                 | no               | Public URL of this API                                                                       |
+| `APP_URL`                                                     | yes              | Public URL of this API (e.g. `http://localhost:5000`)                                        |
 | `FRONTEND_URL`                                                | yes              | Allowed CORS origin and payment redirect target                                              |
 | `GOOGLE_CLIENT_ID`                                            | for Google login | OAuth client id                                                                              |
 | `SUPER_ADMIN_NAME` / `_EMAIL` / `_PASSWORD`                   | yes              | Seeded super admin                                                                           |
@@ -277,8 +277,6 @@ Copy `.env.example` to `.env`. **Never commit `.env`, and never put real secrets
 | `BKASH_CALLBACK_URL`                                          | for payments     | **API base URL**, e.g. `http://localhost:5000/api/v1`. The code appends `/payment/callback`. |
 | `LABOR_RATE_PER_HOUR`                                         | no               | Labor price per hour used for invoices (default `500`)                                       |
 | `TAX_RATE_PERCENT`                                            | no               | Default tax percent for invoices (default `0`)                                               |
-
-> **Note:** `src/app/config/index.ts` currently reads `APP_URL` for the backend URL, while `.env.example` uses `BACKEND_URL`. Keep the two names consistent.
 
 ---
 
@@ -566,11 +564,10 @@ A cron job (`src/app/jobs/visitReminder.job.ts`) runs **every 10 minutes** and s
 
 ## 15. Known Limitations / TODO
 
-- [ ] **Database-level overlap protection is not in the migrations yet.** The schema comment and `Assignment.service.ts` refer to constraints named `no_technician_overlap` and `one_active_assignment_per_request`, but no migration creates them. Today conflicts are only checked in application code, so two managers acting at the same instant could double-book a technician. Add a custom migration (`btree_gist` + `EXCLUDE USING gist` and a partial unique index) to close this gap.
+- [x] **Database-level overlap protection** — added in migration `20261003120000_assignment_overlap_constraints` (`no_technician_overlap` exclusion constraint + `one_active_assignment_per_request` partial unique index). Run `npx prisma migrate deploy` to apply it.
 - [ ] Migration history has two folders both named `init`; verify with `npx prisma migrate reset` on an empty database.
 - [ ] No automated tests yet.
 - [ ] No rate limiting or `helmet`; add them to login and OTP endpoints before going live.
-- [ ] `APP_URL` vs `BACKEND_URL` env name mismatch (see section 8).
 - [ ] Invoices have no line items (one invoice per work order, totals only).
 - [ ] API documentation is this README only; a Swagger / Postman collection would help.
 

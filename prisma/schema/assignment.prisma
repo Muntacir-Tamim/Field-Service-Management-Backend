@@ -1,51 +1,25 @@
-// ============================================================
-// ASSIGNMENT — Step 4, 5 of workflow
-// Template: PH Healthcare → Schedule model
-//
-// Workflow:
-//   Manager assigns technician → Schedule Visit
-//
-// Healthcare parallel:
-//   Doctor creates schedule → Patient books appointment slot
-//
-// Key difference:
-//   Healthcare Schedule was created by Doctor (supply side)
-//   FSM Assignment is created by Manager (demand side, after request exists)
-//
-// Reschedule logic:
-//   Cancel current Assignment (status = CANCELLED)
-//   Create a new Assignment with new time
-//   WorkOrder stays linked to the latest CONFIRMED Assignment
-// ============================================================
-
 model Assignment {
   id             String           @id @default(uuid())
   status         AssignmentStatus @default(PENDING)
-  scheduledStart DateTime         // Step 5 — when the visit is scheduled
+  scheduledStart DateTime         
   scheduledEnd   DateTime
-  actualStart    DateTime?        // Step 6 — when technician actually started
-  actualEnd      DateTime?        // Step 8 — when work actually ended
-  notes          String?          // dispatcher notes
-  confirmedAt    DateTime?        // when technician confirmed
+  actualStart    DateTime?        
+  actualEnd      DateTime?        
+  notes          String?          
+  confirmedAt    DateTime?        
   cancelledAt    DateTime?
   cancelReason   String?
-  cancelledBy    String?          // userId of whoever cancelled / rescheduled
+  cancelledBy    String?          
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  // which service request this assignment is for (Step 4)
   serviceRequestId String
   serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  // which technician is assigned (Step 4)
   technicianId String
   technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  // Step 5 onwards — work order is created when assignment is CONFIRMED
   workOrder WorkOrder?
-
-  // NOTE: overlap protection is done by a Postgres EXCLUDE constraint
-  // (see migration SQL) + a check inside the service. Prisma cannot express it.
 
   @@index([serviceRequestId], name: "idx_assignment_serviceRequestId")
   @@index([technicianId],     name: "idx_assignment_technicianId")

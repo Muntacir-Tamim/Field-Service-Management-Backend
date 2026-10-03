@@ -1,30 +1,13 @@
-// ============================================================
-// SERVICE REQUEST — Step 1, 2, 3 of workflow
-// Template: PH Healthcare → Appointment model
-//
-// Workflow:
-//   Customer submits → Manager reviews → Approved/Rejected
-//
-// Healthcare parallel:
-//   Patient books appointment → Doctor reviews → Confirmed/Cancelled
-//
-// Key difference: ServiceRequest has multiple Assignments
-//   (reschedule creates a new Assignment, old one is CANCELLED)
-//   Healthcare Appointment had one-to-one with Schedule
-// ============================================================
-
 model ServiceRequest {
   id            String               @id @default(uuid())
   title         String
   description   String
   priority      Priority             @default(MEDIUM)
   status        ServiceRequestStatus @default(PENDING)
-  preferredDate DateTime?            // customer's preferred date (Step 1)
-  address       String               // where the work needs to happen
+  preferredDate DateTime?           
+  address       String              
   city          String
 
-  // Step 3 — Manager review fields
-  // Same pattern as Doctor.rejectionReason / Doctor.reviewedAt
   rejectionReason String?
   reviewedAt      DateTime?
 
@@ -33,22 +16,16 @@ model ServiceRequest {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  // Step 1 — raised by customer
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  // Step 3 — reviewed by manager (nullable: not yet reviewed)
   managerId String?
   manager   Manager? @relation(fields: [managerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  // files the customer attaches when raising the request
   attachments ServiceRequestAttachment[]
 
-  // Step 4 onwards — one active assignment at a time
-  // reschedule = cancel current + create new Assignment
   assignments Assignment[]
 
-  // Step 11 — feedback after work is done
   feedback CustomerFeedback?
 
   @@index([status],     name: "idx_sr_status")
@@ -57,13 +34,11 @@ model ServiceRequest {
   @@map("service_requests")
 }
 
-// Files attached by customer when submitting the request
-// Healthcare equivalent: Doctor.additionalFiles (but normalized as separate rows)
 model ServiceRequestAttachment {
   id        String   @id @default(uuid())
   url       String
   publicId  String
-  fileType  String   // "image/jpeg", "application/pdf" etc.
+  fileType  String  
   fileName  String?
   createdAt DateTime @default(now())
 

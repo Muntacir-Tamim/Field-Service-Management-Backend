@@ -19,7 +19,6 @@ const router = Router();
 
 const MANAGEMENT = [Role.MANAGER, Role.ADMIN, Role.SUPER_ADMIN] as const;
 
-// ── file upload: max 5MB each, only PDF / images ─────
 const ALLOWED_MIME = [
   "application/pdf",
   "image/jpeg",
@@ -40,7 +39,6 @@ const uploader = multer({
   },
 });
 
-// turns MulterError (file too large etc.) into a clean 400
 const uploadApplicationFiles = (
   req: Request,
   res: Response,
@@ -57,8 +55,6 @@ const uploadApplicationFiles = (
   });
 };
 
-// ── PUBLIC: technician applies ───────────────────────
-// POST /api/v1/technicians/apply   (multipart: data + resume + documents[])
 router.post(
   "/apply",
   uploadApplicationFiles,
@@ -77,7 +73,6 @@ router.post(
   TechnicianController.resendApplicationOtp,
 );
 
-// ── TECHNICIAN (own data) — static paths before "/:technicianId" ──
 router.get(
   "/my-profile",
   auth(Role.TECHNICIAN),
@@ -111,7 +106,6 @@ router.delete(
   TechnicianController.removeMySkill,
 );
 
-// ── MANAGER / ADMIN ──────────────────────────────────
 router.get("/", auth(...MANAGEMENT), TechnicianController.getAllTechnicians);
 
 router.get(

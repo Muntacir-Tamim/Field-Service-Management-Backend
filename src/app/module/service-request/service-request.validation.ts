@@ -18,7 +18,6 @@ export const ReviewServiceRequestZodSchema = z
   })
   .refine(
     (data) => {
-      // REJECTED হলে rejectionReason দিতেই হবে
       if (data.status === "REJECTED" && !data.rejectionReason) {
         return false;
       }

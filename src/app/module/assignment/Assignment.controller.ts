@@ -3,7 +3,7 @@ import httpStatus from "http-status";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import type { IRequestUser } from "../auth/auth.interface";
-import { AssignmentServices } from "./assignment.service";
+import { AssignmentServices } from "./Assignment.service";
 
 const createAssignment = catchAsync(async (req: Request, res: Response) => {
   const result = await AssignmentServices.createAssignment(

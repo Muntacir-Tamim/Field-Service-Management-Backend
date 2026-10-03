@@ -11,9 +11,6 @@ import type {
   IServiceRequestQuery,
 } from "./service-request.interface";
 
-// ─────────────────────────────────────────────
-// CUSTOMER: Service Request তৈরি করা
-// ─────────────────────────────────────────────
 const createServiceRequest = async (
   payload: ICreateServiceRequestPayload,
   files: Express.Multer.File[],
@@ -90,9 +87,6 @@ const createServiceRequest = async (
   return result;
 };
 
-// ─────────────────────────────────────────────
-// MANAGER: APPROVE / REJECT
-// ─────────────────────────────────────────────
 const reviewServiceRequest = async (
   serviceRequestId: string,
   payload: IReviewServiceRequestPayload,
@@ -154,9 +148,6 @@ const reviewServiceRequest = async (
   return updatedRequest;
 };
 
-// ─────────────────────────────────────────────
-// CUSTOMER: নিজের request cancel করা
-// ─────────────────────────────────────────────
 const cancelServiceRequest = async (
   serviceRequestId: string,
   user: IRequestUser,
@@ -211,9 +202,6 @@ const cancelServiceRequest = async (
   return updatedRequest;
 };
 
-// ─────────────────────────────────────────────
-// CUSTOMER: নিজের সব requests দেখা
-// ─────────────────────────────────────────────
 const getMyServiceRequests = async (
   query: IServiceRequestQuery,
   user: IRequestUser,
@@ -285,9 +273,6 @@ const getMyServiceRequests = async (
   };
 };
 
-// ─────────────────────────────────────────────
-// MANAGER: সব requests দেখা
-// ─────────────────────────────────────────────
 const getAllServiceRequests = async (query: IServiceRequestQuery) => {
   const limit = query.limit ? Number(query.limit) : 10;
   const page = query.page ? Number(query.page) : 1;
@@ -360,9 +345,6 @@ const getAllServiceRequests = async (query: IServiceRequestQuery) => {
   };
 };
 
-// ─────────────────────────────────────────────
-// SINGLE request দেখা
-// ─────────────────────────────────────────────
 const getSingleServiceRequest = async (
   serviceRequestId: string,
   user: IRequestUser,
@@ -441,9 +423,6 @@ const getSingleServiceRequest = async (
   return serviceRequest;
 };
 
-// ─────────────────────────────────────────────
-// MANAGER: PENDING → UNDER_REVIEW
-// ─────────────────────────────────────────────
 const markUnderReview = async (
   serviceRequestId: string,
   user: IRequestUser,

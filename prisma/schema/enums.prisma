@@ -1,16 +1,9 @@
-// ============================================================
-// ENUMS — Field Service Management System
-// Template: PH Healthcare Project
-// ============================================================
-
-// ------ User & Auth ------
-
 enum Role {
   SUPER_ADMIN
   ADMIN
-  MANAGER    // reviews service requests, assigns technicians
-  TECHNICIAN // does the actual field work
-  CUSTOMER   // raises service requests
+  MANAGER    
+  TECHNICIAN 
+  CUSTOMER   
 }
 
 enum UserStatus {
@@ -30,40 +23,31 @@ enum AuthProvider {
   CREDENTIAL
 }
 
-// ------ Core Workflow State Machines ------
-
-// Step 1-3 in workflow: Customer → Service Request → Manager Review
-// PENDING → UNDER_REVIEW → APPROVED → REJECTED | CANCELLED
 enum ServiceRequestStatus {
-  PENDING       // customer just submitted
-  UNDER_REVIEW  // manager is reviewing
-  APPROVED      // manager approved, ready for assignment
-  REJECTED      // manager rejected
-  CANCELLED     // customer cancelled
-  COMPLETED     // entire workflow done
+  PENDING       
+  UNDER_REVIEW  
+  APPROVED      
+  REJECTED      
+  CANCELLED     
+  COMPLETED     
 }
 
-// Step 4 in workflow: Technician Assignment
-// PENDING → CONFIRMED → CANCELLED
 enum AssignmentStatus {
-  PENDING    // technician assigned, not yet confirmed
-  CONFIRMED  // technician confirmed the visit
-  CANCELLED  // cancelled — reschedule creates a new Assignment
+  PENDING    
+  CONFIRMED  
+  CANCELLED  
 }
 
-// Step 5-9 in workflow: Schedule Visit → Work Completed
-// SCHEDULED → IN_PROGRESS → COMPLETED → VERIFIED
 enum WorkOrderStatus {
-  SCHEDULED           // visit is scheduled
-  TECHNICIAN_EN_ROUTE // technician is on the way
-  ARRIVED             // technician arrived at location
-  IN_PROGRESS         // work has started
-  COMPLETED           // work is done by technician
-  VERIFIED            // manager verified and closed
+  SCHEDULED           
+  TECHNICIAN_EN_ROUTE 
+  ARRIVED             
+  IN_PROGRESS         
+  COMPLETED           
+  VERIFIED            
   CANCELLED
 }
 
-// Step 10 in workflow: Invoice / Payment
 enum PaymentStatus {
   UNPAID
   PAID
@@ -79,8 +63,6 @@ enum PaymentMethod {
   NAGAD
   CARD
 }
-
-// ------ Supporting Enums ------
 
 enum Priority {
   LOW
@@ -100,7 +82,6 @@ enum TechnicianVerificationStatus {
   APPROVED
   REJECTED
 }
-
 
 enum NotificationType {
   SERVICE_REQUEST_CREATED

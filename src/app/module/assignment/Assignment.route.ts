@@ -13,25 +13,18 @@ const router = Router();
 
 const MANAGEMENT = [Role.MANAGER, Role.ADMIN, Role.SUPER_ADMIN] as const;
 
-// ── TECHNICIAN ROUTES (static paths first, before "/:assignmentId") ──
-
-// GET /api/v1/assignments/my-assignments?status=&from=&to=
 router.get(
   "/my-assignments",
   auth(Role.TECHNICIAN),
   AssignmentController.getMyAssignments,
 );
 
-// ── MANAGER ROUTES ───────────────────────────────────
-
-// GET /api/v1/assignments/available-technicians?scheduledStart=&scheduledEnd=&skillId=
 router.get(
   "/available-technicians",
   auth(...MANAGEMENT),
   AssignmentController.getAvailableTechnicians,
 );
 
-// POST /api/v1/assignments   (Step 4: assign technician + Step 5: schedule visit)
 router.post(
   "/",
   auth(...MANAGEMENT),
@@ -39,10 +32,8 @@ router.post(
   AssignmentController.createAssignment,
 );
 
-// GET /api/v1/assignments
 router.get("/", auth(...MANAGEMENT), AssignmentController.getAllAssignments);
 
-// PATCH /api/v1/assignments/:assignmentId/reschedule
 router.patch(
   "/:assignmentId/reschedule",
   auth(...MANAGEMENT),
@@ -50,18 +41,12 @@ router.patch(
   AssignmentController.rescheduleAssignment,
 );
 
-// ── TECHNICIAN: confirm ──────────────────────────────
-
-// PATCH /api/v1/assignments/:assignmentId/confirm   (creates the WorkOrder)
 router.patch(
   "/:assignmentId/confirm",
   auth(Role.TECHNICIAN),
   AssignmentController.confirmAssignment,
 );
 
-// ── MANAGER or TECHNICIAN: cancel ────────────────────
-
-// PATCH /api/v1/assignments/:assignmentId/cancel
 router.patch(
   "/:assignmentId/cancel",
   auth(Role.TECHNICIAN, ...MANAGEMENT),
@@ -69,9 +54,6 @@ router.patch(
   AssignmentController.cancelAssignment,
 );
 
-// ── SHARED ───────────────────────────────────────────
-
-// GET /api/v1/assignments/:assignmentId
 router.get(
   "/:assignmentId",
   auth(Role.TECHNICIAN, ...MANAGEMENT),

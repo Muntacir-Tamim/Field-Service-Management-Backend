@@ -9,7 +9,7 @@ export interface ICreateAssignmentPayload {
 export interface IRescheduleAssignmentPayload {
   scheduledStart: Date;
   scheduledEnd: Date;
-  technicianId?: string; // optional: change technician while rescheduling
+  technicianId?: string;
   reason?: string;
   notes?: string;
 }
@@ -26,8 +26,8 @@ export interface IAssignmentQuery {
   status?: string;
   technicianId?: string;
   serviceRequestId?: string;
-  from?: string; // scheduledStart >= from
-  to?: string; // scheduledStart <= to
+  from?: string;
+  to?: string;
 }
 
 export interface IAvailableTechnicianQuery {

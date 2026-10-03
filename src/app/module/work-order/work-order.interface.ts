@@ -29,6 +29,6 @@ export interface IWorkOrderQuery {
   status?: string;
   technicianId?: string;
   serviceRequestId?: string;
-  from?: string; // assignment.scheduledStart >= from
-  to?: string; // assignment.scheduledStart <= to
+  from?: string;
+  to?: string;
 }

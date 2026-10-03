@@ -3,7 +3,6 @@ import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
-// 🔔 NOTIFICATION: import
 import { NotificationEvents } from "../notification/notification.events";
 import type {
   ICreateFeedbackPayload,
@@ -14,8 +13,6 @@ import type {
 const MANAGEMENT_ROLES = ["MANAGER", "ADMIN", "SUPER_ADMIN"];
 const SORTABLE_FIELDS = ["createdAt", "rating"];
 
-// Feedback-e technician direct store kora nei.
-// Technician = service request-er CONFIRMED assignment-er technician.
 const feedbackInclude = {
   customer: {
     select: {
@@ -38,9 +35,6 @@ const feedbackInclude = {
   },
 } satisfies Prisma.CustomerFeedbackInclude;
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 const getPagination = (query: IFeedbackQuery) => {
   const page = Math.max(Number(query.page) || 1, 1);
   const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 100);
@@ -112,9 +106,6 @@ const getTechnicianOrThrow = async (userId: string) => {
   return technician;
 };
 
-// ─────────────────────────────────────────────
-// CUSTOMER: feedback dewa (service COMPLETED/paid hole)
-// ─────────────────────────────────────────────
 const createFeedback = async (
   payload: ICreateFeedbackPayload,
   user: IRequestUser,
@@ -157,7 +148,6 @@ const createFeedback = async (
   }
 
   try {
-    // 🔔 NOTIFICATION: "return await" ke variable-e rakha holo
     const feedback = await prisma.customerFeedback.create({
       data: {
         rating: payload.rating,
@@ -168,12 +158,10 @@ const createFeedback = async (
       include: feedbackInclude,
     });
 
-    // 🔔 NOTIFICATION: technician-ke feedback jano (rating <= 2 hole managers-ke-o)
     void NotificationEvents.feedbackReceived(feedback.id);
 
     return feedback;
   } catch (error) {
-    // duto request ekshathe ashle @unique serviceRequestId final safety net
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
@@ -187,9 +175,6 @@ const createFeedback = async (
   }
 };
 
-// ─────────────────────────────────────────────
-// CUSTOMER: nijer feedback edit
-// ─────────────────────────────────────────────
 const updateMyFeedback = async (
   feedbackId: string,
   payload: IUpdateFeedbackPayload,
@@ -223,9 +208,6 @@ const updateMyFeedback = async (
   });
 };
 
-// ─────────────────────────────────────────────
-// CUSTOMER (own) / MANAGEMENT (moderation): feedback delete
-// ─────────────────────────────────────────────
 const deleteFeedback = async (feedbackId: string, user: IRequestUser) => {
   const feedback = await prisma.customerFeedback.findUnique({
     where: { id: feedbackId },
@@ -250,17 +232,11 @@ const deleteFeedback = async (feedbackId: string, user: IRequestUser) => {
   return { id: feedbackId };
 };
 
-// ─────────────────────────────────────────────
-// CUSTOMER: amar sob feedback
-// ─────────────────────────────────────────────
 const getMyFeedbacks = async (query: IFeedbackQuery, user: IRequestUser) => {
   const customer = await getCustomerOrThrow(user.userId);
   return paginateFeedbacks([{ customerId: customer.id }], query);
 };
 
-// ─────────────────────────────────────────────
-// MANAGEMENT: sob feedback (?rating=5&technicianId=...)
-// ─────────────────────────────────────────────
 const getAllFeedbacks = async (query: IFeedbackQuery) => {
   const conditions: Prisma.CustomerFeedbackWhereInput[] = [];
   if (query.technicianId) {
@@ -269,10 +245,6 @@ const getAllFeedbacks = async (query: IFeedbackQuery) => {
   return paginateFeedbacks(conditions, query);
 };
 
-// ─────────────────────────────────────────────
-// Ekta service request-er feedback
-// CUSTOMER (owner) / TECHNICIAN (je kaj korechhe) / MANAGEMENT
-// ─────────────────────────────────────────────
 const getFeedbackByServiceRequest = async (
   serviceRequestId: string,
   user: IRequestUser,
@@ -327,9 +299,6 @@ const getFeedbackByServiceRequest = async (
   return feedback;
 };
 
-// ─────────────────────────────────────────────
-// Technician-er rating summary (average, total, 1-5 distribution)
-// ─────────────────────────────────────────────
 const getTechnicianRatingSummary = async (technicianId: string) => {
   const where = technicianWhere(technicianId);
 
@@ -360,7 +329,6 @@ const getTechnicianRatingSummary = async (technicianId: string) => {
   };
 };
 
-// MANAGEMENT: kono technician-er feedback + summary
 const getTechnicianFeedbacks = async (
   technicianId: string,
   query: IFeedbackQuery,
@@ -382,7 +350,6 @@ const getTechnicianFeedbacks = async (
   return { ...list, summary, technician };
 };
 
-// TECHNICIAN: amar feedback + summary
 const getMyTechnicianFeedbacks = async (
   query: IFeedbackQuery,
   user: IRequestUser,

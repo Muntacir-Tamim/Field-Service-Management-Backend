@@ -3,9 +3,6 @@ import { NotificationServices } from "./notification.service";
 
 const { notify, notifyUsers, notifyManagement } = NotificationServices;
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 const fmtDate = (d: Date) =>
   d.toLocaleString("en-GB", {
     dateStyle: "medium",
@@ -13,7 +10,6 @@ const fmtDate = (d: Date) =>
     timeZone: "Asia/Dhaka",
   });
 
-// Event function-gulo kokhono throw korbe na -> main API response-e asor porbe na.
 const safe =
   <A extends unknown[]>(name: string, fn: (...args: A) => Promise<void>) =>
   async (...args: A): Promise<void> => {
@@ -86,11 +82,6 @@ const loadPayment = (id: string) =>
     },
   });
 
-// ─────────────────────────────────────────────
-// SERVICE REQUEST
-// ─────────────────────────────────────────────
-
-// customer notun request dilo -> managers
 const serviceRequestCreated = safe(
   "serviceRequestCreated",
   async (serviceRequestId: string) => {
@@ -107,7 +98,6 @@ const serviceRequestCreated = safe(
   },
 );
 
-// manager review korlo (UNDER_REVIEW / APPROVED / REJECTED) -> customer
 const serviceRequestReviewed = safe(
   "serviceRequestReviewed",
   async (serviceRequestId: string) => {
@@ -151,7 +141,6 @@ const serviceRequestReviewed = safe(
   },
 );
 
-// customer nijer request cancel korlo -> managers
 const serviceRequestCancelled = safe(
   "serviceRequestCancelled",
   async (serviceRequestId: string) => {
@@ -168,11 +157,6 @@ const serviceRequestCancelled = safe(
   },
 );
 
-// ─────────────────────────────────────────────
-// ASSIGNMENT
-// ─────────────────────────────────────────────
-
-// manager technician assign korlo -> technician
 const assignmentCreated = safe(
   "assignmentCreated",
   async (assignmentId: string) => {
@@ -191,7 +175,6 @@ const assignmentCreated = safe(
   },
 );
 
-// technician confirm korlo -> customer + managers
 const assignmentConfirmed = safe(
   "assignmentConfirmed",
   async (assignmentId: string) => {
@@ -218,7 +201,6 @@ const assignmentConfirmed = safe(
   },
 );
 
-// assignment cancel hoyeche (technician decline ba manager cancel)
 const assignmentCancelled = safe(
   "assignmentCancelled",
   async (assignmentId: string) => {
@@ -235,7 +217,6 @@ const assignmentCancelled = safe(
     const reason = a.cancelReason ? ` Reason: ${a.cancelReason}` : "";
 
     if (canceller?.role === "TECHNICIAN") {
-      // technician decline/cancel korse -> managers jeno notun kare assign kore
       await notifyManagement({
         type: "ASSIGNMENT_CANCELLED",
         title: "Technician cancelled an assignment",
@@ -244,7 +225,6 @@ const assignmentCancelled = safe(
         entityId: a.id,
       });
     } else {
-      // manager cancel korse -> technician-ke janiye dao
       await notify({
         userId: a.technician.userId,
         type: "ASSIGNMENT_CANCELLED",
@@ -256,7 +236,6 @@ const assignmentCancelled = safe(
       });
     }
 
-    // customer-ke age confirm koreche bole jana thakle, ekhon cancel-o jananor dorkar
     if (a.confirmedAt) {
       await notify({
         userId: a.serviceRequest.customer.userId,
@@ -271,7 +250,6 @@ const assignmentCancelled = safe(
   },
 );
 
-// manager reschedule korlo (old -> CANCELLED, new -> PENDING)
 const assignmentRescheduled = safe(
   "assignmentRescheduled",
   async (oldAssignmentId: string, newAssignmentId: string) => {
@@ -281,7 +259,6 @@ const assignmentRescheduled = safe(
     ]);
     if (!oldA || !newA) return;
 
-    // notun technician (ba ager-i technician) -> confirm korte hobe
     await notify({
       userId: newA.technician.userId,
       type: "ASSIGNMENT_RESCHEDULED",
@@ -292,7 +269,6 @@ const assignmentRescheduled = safe(
       sendEmail: true,
     });
 
-    // technician bodle gele ager jon-ke jano
     if (oldA.technician.userId !== newA.technician.userId) {
       await notify({
         userId: oldA.technician.userId,
@@ -304,7 +280,6 @@ const assignmentRescheduled = safe(
       });
     }
 
-    // customer ager visit confirmed bole jante
     if (oldA.confirmedAt) {
       await notify({
         userId: newA.serviceRequest.customer.userId,
@@ -319,7 +294,6 @@ const assignmentRescheduled = safe(
   },
 );
 
-// cron job theke: visit-er ~1 ghonta age (technician + customer duijon-ke)
 const visitReminder = safe("visitReminder", async (assignmentId: string) => {
   const a = await loadAssignment(assignmentId);
   if (!a) return;
@@ -333,13 +307,10 @@ const visitReminder = safe("visitReminder", async (assignmentId: string) => {
     entityType: "Assignment",
     entityId: a.id,
     sendEmail: true,
-    dedupe: true, // cron bar bar challeo duplicate hobe na
+    dedupe: true,
   });
 });
 
-// ─────────────────────────────────────────────
-// WORK ORDER  (changeStatus-er por ekbar call korlei hoy)
-// ─────────────────────────────────────────────
 const workOrderStatusChanged = safe(
   "workOrderStatusChanged",
   async (workOrderId: string) => {
@@ -439,9 +410,6 @@ const workOrderStatusChanged = safe(
   },
 );
 
-// ─────────────────────────────────────────────
-// PAYMENT
-// ─────────────────────────────────────────────
 const invoiceCreated = safe("invoiceCreated", async (paymentId: string) => {
   const p = await loadPayment(paymentId);
   if (!p) return;
@@ -472,7 +440,7 @@ const paymentReceived = safe("paymentReceived", async (paymentId: string) => {
     entityType: "Payment",
     entityId: p.id,
     sendEmail: true,
-    dedupe: true, // bKash callback duibar ashleo ekbarii jabe
+    dedupe: true,
   });
 
   await notifyManagement({
@@ -502,9 +470,6 @@ const paymentRefunded = safe("paymentRefunded", async (paymentId: string) => {
   });
 });
 
-// ─────────────────────────────────────────────
-// FEEDBACK
-// ─────────────────────────────────────────────
 const feedbackReceived = safe(
   "feedbackReceived",
   async (feedbackId: string) => {
@@ -542,7 +507,6 @@ const feedbackReceived = safe(
       });
     }
 
-    // kharap rating hole managers alert pabe
     if (f.rating <= 2) {
       await notifyManagement({
         type: "FEEDBACK_RECEIVED",
@@ -557,11 +521,6 @@ const feedbackReceived = safe(
   },
 );
 
-// ─────────────────────────────────────────────
-// TECHNICIAN APPLICATION
-// ─────────────────────────────────────────────
-
-// email verify hoye gele -> managers review korbe
 const technicianApplicationSubmitted = safe(
   "technicianApplicationSubmitted",
   async (technicianId: string) => {
@@ -581,7 +540,6 @@ const technicianApplicationSubmitted = safe(
   },
 );
 
-// review hoye gele -> technician (email age theke-i jay, tai in-app only)
 const technicianApplicationReviewed = safe(
   "technicianApplicationReviewed",
   async (technicianId: string) => {

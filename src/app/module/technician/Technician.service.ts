@@ -45,7 +45,6 @@ const otpKey = (email: string) => `technician-application-otp:${email}`;
 const cooldownKey = (email: string) =>
   `technician-application-cooldown:${email}`;
 
-// what managers/technicians get back for a technician
 const technicianInclude = {
   skills: {
     select: {
@@ -59,9 +58,6 @@ const technicianInclude = {
   },
 } satisfies Prisma.TechnicianInclude;
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 const uploadBuffer = (file: Express.Multer.File) =>
   new Promise<UploadApiResponse>((resolve, reject) => {
     cloudinary.uploader
@@ -89,7 +85,6 @@ const toStored = (r: UploadApiResponse): IStoredFile => ({
   resourceType: r.resource_type,
 });
 
-// best-effort delete — never throws
 const destroyFiles = async (
   files: { publicId: string; resourceType?: string }[],
 ) => {
@@ -148,9 +143,6 @@ const getTechnicianOrThrow = async (user: IRequestUser) => {
   return technician;
 };
 
-// ─────────────────────────────────────────────
-// PUBLIC: apply
-// ─────────────────────────────────────────────
 const applyAsTechnician = async (
   payload: IApplyAsTechnicianPayload,
   resume: Express.Multer.File | null,
@@ -158,7 +150,6 @@ const applyAsTechnician = async (
 ) => {
   const email = payload.email.trim().toLowerCase();
 
-  // 1) email already used?
   const existingUser = await prisma.user.findUnique({
     where: { email },
     include: { technician: true },
@@ -177,7 +168,6 @@ const applyAsTechnician = async (
       );
     }
 
-    // an earlier application was never email-verified: replace it
     const oldFiles: { publicId: string; resourceType?: string }[] = [];
     if (existingUser.technician?.resumePublicId) {
       oldFiles.push({ publicId: existingUser.technician.resumePublicId });
@@ -190,7 +180,6 @@ const applyAsTechnician = async (
     await destroyFiles(oldFiles);
   }
 
-  // 2) skills must exist
   const skillIds = payload.skills.map((s) => s.skillId);
   const foundSkills = await prisma.skill.count({
     where: { id: { in: skillIds } },
@@ -202,7 +191,6 @@ const applyAsTechnician = async (
     );
   }
 
-  // 3) upload files FIRST (outside DB work); clean up if anything fails later
   const uploaded: UploadApiResponse[] = [];
   let resumeResult: UploadApiResponse | null = null;
   let documentResults: UploadApiResponse[] = [];
@@ -215,7 +203,6 @@ const applyAsTechnician = async (
     documentResults = await Promise.all(documents.map(uploadBuffer));
     uploaded.push(...documentResults);
 
-    // 4) create user + technician + skills together
     const hashedPassword = await bcrypt.hash(
       payload.password,
       Number(config.bcrypt_salt_rounds),
@@ -250,7 +237,6 @@ const applyAsTechnician = async (
       include: { technician: { include: technicianInclude } },
     });
 
-    // 5) OTP mail. If mail fails the application still exists -> use resend-otp
     try {
       await sendApplicationOtp(payload.name, email);
     } catch (error) {
@@ -302,7 +288,6 @@ const verifyTechnicianEmail = async (
 
   await redisClient.del(otpKey(email));
 
-  // 🔔 NOTIFICATION: "return" ke variable-e rakha holo
   const verified = await prisma.user.update({
     where: { id: user.id },
     data: { emailVerified: true },
@@ -310,7 +295,6 @@ const verifyTechnicianEmail = async (
     include: { technician: { include: technicianInclude } },
   });
 
-  // 🔔 NOTIFICATION: email verify hole managers-ke jano je notun application ashche
   void NotificationEvents.technicianApplicationSubmitted(user.technician.id);
 
   return verified;
@@ -346,11 +330,6 @@ const resendApplicationOtp = async (payload: IResendOtpPayload) => {
   return null;
 };
 
-// ─────────────────────────────────────────────
-// MANAGER / ADMIN: approve or reject
-//   PENDING  -> APPROVED | REJECTED
-//   REJECTED -> APPROVED  (reconsider)
-// ─────────────────────────────────────────────
 const reviewTechnician = async (
   technicianId: string,
   payload: IReviewTechnicianPayload,
@@ -414,7 +393,6 @@ const reviewTechnician = async (
     include: technicianInclude,
   });
 
-  // email is a bonus: never fail the review because of it
   try {
     await sendTemplateMail(
       isApproved
@@ -430,15 +408,11 @@ const reviewTechnician = async (
     console.log("Failed to send technician review email:", error);
   }
 
-  // 🔔 NOTIFICATION: technician-ke in-app notification (approve/reject)
   void NotificationEvents.technicianApplicationReviewed(technicianId);
 
   return result;
 };
 
-// ─────────────────────────────────────────────
-// MANAGER / ADMIN: list + single
-// ─────────────────────────────────────────────
 const getAllTechnicians = async (query: ITechnicianQuery) => {
   const page = Math.max(Number.parseInt(query.page ?? "1", 10) || 1, 1);
   const limit = Math.min(
@@ -511,9 +485,6 @@ const getSingleTechnician = async (technicianId: string) => {
   return technician;
 };
 
-// ─────────────────────────────────────────────
-// TECHNICIAN: own profile
-// ─────────────────────────────────────────────
 const getMyProfile = async (user: IRequestUser) => {
   const technician = await getTechnicianOrThrow(user);
   return prisma.technician.findUniqueOrThrow({
@@ -522,8 +493,6 @@ const getMyProfile = async (user: IRequestUser) => {
   });
 };
 
-// name & email are NOT editable here: the login token contains them,
-// changing them would invalidate the technician's current session.
 const updateMyProfile = async (
   user: IRequestUser,
   payload: IUpdateTechnicianProfilePayload,
@@ -541,7 +510,7 @@ const updateMyAvailability = async (
   isAvailable: boolean,
 ) => {
   const technician = await getTechnicianOrThrow(user);
-  // existing PENDING/CONFIRMED visits are kept; only NEW assignments are blocked
+
   return prisma.technician.update({
     where: { id: technician.id },
     data: { isAvailable },

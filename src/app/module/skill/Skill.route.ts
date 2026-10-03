@@ -9,7 +9,6 @@ const router = Router();
 
 const MANAGEMENT = [Role.MANAGER, Role.ADMIN, Role.SUPER_ADMIN] as const;
 
-// PUBLIC — apply form needs the skill list
 router.get("/", SkillController.getAllSkills);
 
 router.post(

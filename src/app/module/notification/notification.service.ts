@@ -14,12 +14,8 @@ import type {
   INotifyPayload,
 } from "./notification.interface";
 
-// Je role-gulo "manager side" notification pabe. Dorkar hole SUPER_ADMIN add koro.
 const MANAGEMENT_ROLES = ["MANAGER", "ADMIN"] as const;
 
-// ─────────────────────────────────────────────
-// Email
-// ─────────────────────────────────────────────
 const sendNotificationEmail = async (
   to: string,
   name: string,
@@ -44,9 +40,6 @@ const sendNotificationEmail = async (
   });
 };
 
-// ─────────────────────────────────────────────
-// CORE: ekjon user-ke notification (kokhono throw kore na)
-// ─────────────────────────────────────────────
 const notify = async (input: INotifyInput) => {
   try {
     if (input.dedupe && input.entityId) {
@@ -122,9 +115,6 @@ const notifyManagement = async (payload: INotifyPayload) => {
   await notifyUsers(ids, payload);
 };
 
-// ─────────────────────────────────────────────
-// API: list / count / read / delete
-// ─────────────────────────────────────────────
 const getMyNotifications = async (
   query: INotificationQuery,
   user: IRequestUser,
@@ -173,7 +163,6 @@ const getUnreadCount = async (user: IRequestUser) => {
 };
 
 const markAsRead = async (notificationId: string, user: IRequestUser) => {
-  // userId where-e thakay onno user-er notification touch kora jabe na
   const owned = await prisma.notification.findFirst({
     where: { id: notificationId, userId: user.userId },
     select: { id: true },

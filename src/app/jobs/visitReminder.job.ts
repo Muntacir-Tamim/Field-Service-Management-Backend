@@ -2,8 +2,8 @@ import cron from "node-cron";
 import { prisma } from "../lib/prisma";
 import { NotificationEvents } from "../module/notification/notification.events";
 
-const REMINDER_WINDOW_MINUTES = 60; // visit shuru hobar koto age reminder
-let running = false; // ager run sesh na hole notun run shuru hobe na
+const REMINDER_WINDOW_MINUTES = 60;
+let running = false;
 
 const runVisitReminders = async () => {
   if (running) return;
@@ -24,7 +24,6 @@ const runVisitReminders = async () => {
       select: { id: true },
     });
 
-    // dedupe NotificationEvents.visitReminder-er bhitore-i ache
     for (const a of upcoming) {
       await NotificationEvents.visitReminder(a.id);
     }
@@ -36,7 +35,6 @@ const runVisitReminders = async () => {
 };
 
 export const startVisitReminderJob = () => {
-  // proti 10 minute-e ekbar
   cron.schedule("*/10 * * * *", runVisitReminders);
   console.log("Visit reminder job started (every 10 minutes).");
 };

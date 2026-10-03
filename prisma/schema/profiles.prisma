@@ -1,15 +1,3 @@
-// ============================================================
-// PROFILES — Customer, Technician, Manager
-// Template: PH Healthcare → Patient model, Doctor model
-//
-// Workflow position:
-//   Customer   = who raises the service request        (Step 1)
-//   Technician = who does the field work               (Step 4-8)
-//   Manager    = who reviews, assigns & handles finance (Step 3, 4, 10)
-// ============================================================
-
-// ------ CUSTOMER ------
-// Healthcare template: Patient model
 model Customer {
   id            String    @id @default(uuid())
   name          String
@@ -26,17 +14,13 @@ model Customer {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  serviceRequests ServiceRequest[]   // Step 1
-  feedbacks       CustomerFeedback[] // Step 11
+  serviceRequests ServiceRequest[]   
+  feedbacks       CustomerFeedback[] 
 
   @@index([isDeleted], name: "idx_customer_isDeleted")
   @@map("customers")
 }
 
-// ------ TECHNICIAN ------
-// Healthcare template: Doctor model
-// verificationStatus pattern = DoctorVerificationStatus
-// reviewedBy audit field = Doctor.reviewedBy
 model Technician {
   id                 String                       @id @default(uuid())
   name               String
@@ -48,14 +32,13 @@ model Technician {
   experienceYears    Int                          @default(0)
   verificationStatus TechnicianVerificationStatus @default(PENDING)
   rejectionReason    String?
-  reviewedBy         String?   // manager userId — audit trail
+  reviewedBy         String?   
   reviewedAt         DateTime?
   isAvailable        Boolean   @default(true)
 
-  // application documents (same idea as Doctor.resume / additionalFiles)
   resumeUrl          String?
   resumePublicId     String?
-  documents          Json?     // [{ url, publicId }] — NID, certificates etc.
+  documents          Json?    
 
   isDeleted          Boolean   @default(false)
   deletedAt          DateTime?
@@ -65,16 +48,15 @@ model Technician {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  skills      TechnicianSkill[]  // what work can this technician do
-  assignments Assignment[]       // Step 4-5
-//   feedbacks   CustomerFeedback[] // Step 11
+  skills      TechnicianSkill[]  
+  assignments Assignment[]      
+
 
   @@index([isAvailable], name: "idx_technician_isAvailable")
   @@index([verificationStatus], name: "idx_technician_verificationStatus")
   @@map("technicians")
 }
 
-// Skill catalog — what kinds of work exist
 model Skill {
   id          String   @id @default(uuid())
   name        String   @unique
@@ -87,8 +69,6 @@ model Skill {
   @@map("skills")
 }
 
-// Junction: which technician has which skill at what level
-// Healthcare equivalent: Doctor.qualifications (normalized)
 model TechnicianSkill {
   technicianId String
   skillId      String
@@ -102,11 +82,6 @@ model TechnicianSkill {
   @@map("technician_skills")
 }
 
-// ------ MANAGER ------
-// Replaces Manager + FinanceUser (two models with identical fields)
-// User.role = MANAGER → reviews requests, assigns technicians
-// User.role = ADMIN   → can also manage invoices
-// One model, Role enum handles the distinction
 model Manager {
   id            String    @id @default(uuid())
   name          String

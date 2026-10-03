@@ -23,9 +23,6 @@ const LEADERBOARD_SORT_FIELDS = [
 
 type DateRange = { from?: Date; to?: Date };
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 const parseDate = (value: string, label: string, endOfDay = false) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -61,7 +58,6 @@ const num = (value: { toNumber: () => number } | null | undefined) =>
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
-// every status shows up in the response, even when its count is 0
 const toStatusMap = <T extends string>(
   keys: readonly T[],
   rows: { status: T; _count: { _all: number } }[],
@@ -79,12 +75,6 @@ const toStatusMap = <T extends string>(
 const sumValues = (map: Record<string, number>) =>
   Object.values(map).reduce((total, value) => total + value, 0);
 
-// ─────────────────────────────────────────────
-// TECHNICIAN: single technician stats
-// completed jobs / labor hours -> filtered by workOrder.completedAt
-// rating                       -> filtered by feedback.createdAt
-// assignments / work-order status counts -> filtered by createdAt
-// ─────────────────────────────────────────────
 const getTechnicianStats = async (technicianId: string, range: DateRange) => {
   const technician = await prisma.technician.findFirst({
     where: { id: technicianId, isDeleted: false },
@@ -110,7 +100,6 @@ const getTechnicianStats = async (technicianId: string, range: DateRange) => {
     ...(completedAt ? { completedAt } : {}),
   };
 
-  // Feedback has no technicianId. Technician = CONFIRMED assignment of the service request.
   const feedbackWhere: Prisma.CustomerFeedbackWhereInput = {
     serviceRequest: {
       assignments: { some: { technicianId, status: "CONFIRMED" } },
@@ -227,9 +216,6 @@ const getSingleTechnicianStats = async (
   query: IAnalyticsQuery,
 ) => getTechnicianStats(technicianId, parseRange(query));
 
-// ─────────────────────────────────────────────
-// MANAGER: technician leaderboard (approved technicians only)
-// ─────────────────────────────────────────────
 const getTechnicianLeaderboard = async (query: IAnalyticsQuery) => {
   const range = parseRange(query);
   const completedAt = dateFilter(range);
@@ -346,9 +332,6 @@ const getTechnicianLeaderboard = async (query: IAnalyticsQuery) => {
   };
 };
 
-// ─────────────────────────────────────────────
-// MANAGER: dashboard stats (all counts use createdAt for the optional range)
-// ─────────────────────────────────────────────
 const getDashboardStats = async (query: IAnalyticsQuery) => {
   const range = parseRange(query);
   const createdAt = dateFilter(range);

@@ -21,7 +21,6 @@ const createSkill = async (payload: ISkillPayload) => {
   return prisma.skill.create({ data: payload });
 };
 
-// Public: used by the "apply as technician" form and manager filters
 const getAllSkills = async (query: {
   category?: string;
   searchTerm?: string;

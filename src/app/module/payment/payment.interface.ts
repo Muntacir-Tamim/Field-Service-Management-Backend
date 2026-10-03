@@ -1,7 +1,7 @@
 export interface ICreateInvoicePayload {
   workOrderId: string;
-  discount?: number; // flat amount in BDT
-  taxPercent?: number; // overrides TAX_RATE_PERCENT from .env
+  discount?: number;
+  taxPercent?: number;
   dueDate?: Date;
   notes?: string;
 }
@@ -24,6 +24,6 @@ export interface IInvoiceQuery {
   sortBy?: string;
   sortOrder?: string;
   status?: string;
-  from?: string; // createdAt >= from
-  to?: string; // createdAt <= to
+  from?: string;
+  to?: string;
 }

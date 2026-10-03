@@ -1,8 +1,5 @@
 import z from "zod";
 
-// NOTE: complete + add-part may arrive as multipart/form-data,
-// so numbers are coerced from strings.
-
 export const StartWorkZodSchema = z.object({
   problemFound: z
     .string()

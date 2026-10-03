@@ -10,7 +10,6 @@ const passwordRule = z
 
 const skillLevel = z.enum(["BEGINNER", "INTERMEDIATE", "EXPERT"]);
 
-// The apply form is multipart, so this schema is run on JSON.parse(req.body.data)
 export const ApplyAsTechnicianZodSchema = z.object({
   name: z.string().trim().min(3, "Name must be at least 3 characters").max(50),
   email: z.email("Not a valid email"),
