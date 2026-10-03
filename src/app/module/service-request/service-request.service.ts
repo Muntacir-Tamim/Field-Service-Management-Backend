@@ -4,6 +4,7 @@ import { cloudinary } from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
+import { NotificationEvents } from "../notification/notification.events";
 import type {
   ICreateServiceRequestPayload,
   IReviewServiceRequestPayload,
@@ -84,6 +85,8 @@ const createServiceRequest = async (
     });
   });
 
+  if (result) void NotificationEvents.serviceRequestCreated(result.id);
+
   return result;
 };
 
@@ -146,6 +149,8 @@ const reviewServiceRequest = async (
     },
   });
 
+  void NotificationEvents.serviceRequestReviewed(serviceRequestId);
+
   return updatedRequest;
 };
 
@@ -201,6 +206,7 @@ const cancelServiceRequest = async (
     where: { id: serviceRequestId },
     data: { status: "CANCELLED" },
   });
+  void NotificationEvents.serviceRequestCancelled(serviceRequestId);
 
   return updatedRequest;
 };
@@ -472,6 +478,8 @@ const markUnderReview = async (
       managerId: manager.id,
     },
   });
+
+  void NotificationEvents.serviceRequestReviewed(serviceRequestId);
 
   return updatedRequest;
 };

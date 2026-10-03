@@ -3,6 +3,8 @@ import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
+// 🔔 NOTIFICATION: import
+import { NotificationEvents } from "../notification/notification.events";
 import type {
   ICreateFeedbackPayload,
   IFeedbackQuery,
@@ -155,7 +157,8 @@ const createFeedback = async (
   }
 
   try {
-    return await prisma.customerFeedback.create({
+    // 🔔 NOTIFICATION: "return await" ke variable-e rakha holo
+    const feedback = await prisma.customerFeedback.create({
       data: {
         rating: payload.rating,
         comment: payload.comment ?? null,
@@ -164,6 +167,11 @@ const createFeedback = async (
       },
       include: feedbackInclude,
     });
+
+    // 🔔 NOTIFICATION: technician-ke feedback jano (rating <= 2 hole managers-ke-o)
+    void NotificationEvents.feedbackReceived(feedback.id);
+
+    return feedback;
   } catch (error) {
     // duto request ekshathe ashle @unique serviceRequestId final safety net
     if (

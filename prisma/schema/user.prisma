@@ -26,6 +26,7 @@ model User {
   deletedAt          DateTime?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+    notifications Notification[]
 
   // role-based profiles — same pattern as Patient/Doctor in healthcare
   customer   Customer?

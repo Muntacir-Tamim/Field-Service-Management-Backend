@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title><%= title %></title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f7f7f7;
+        color: #333;
+      }
+      .container {
+        max-width: 500px;
+        margin: 40px auto;
+        background: #fff;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+      .btn {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 10px 18px;
+        background: #2563eb;
+        color: #fff !important;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+      .footer {
+        margin-top: 30px;
+        font-size: 12px;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2><%= title %></h2>
+      <p>Hi <%= name %>,</p>
+      <p><%= message %></p>
+      <a class="btn" href="<%= frontendUrl %>">Open dashboard</a>
+      <div class="footer">
+        &copy; Field Service Management System. All rights reserved.
+      </div>
+    </div>
+  </body>
+</html>

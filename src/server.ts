@@ -1,5 +1,6 @@
 import app from "./app";
 import config from "./app/config";
+import { startVisitReminderJob } from "./app/jobs/visitReminder.job";
 import { transporter } from "./app/lib/nodemailer";
 import { prisma } from "./app/lib/prisma";
 import { redisClient } from "./app/lib/redis";
@@ -27,6 +28,7 @@ const main = async () => {
     await seedTesterAdmin();
     await seedTesterTechnician();
     await seedTesterManager();
+    startVisitReminderJob();
 
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

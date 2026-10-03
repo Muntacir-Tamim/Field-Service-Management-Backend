@@ -21,6 +21,7 @@ import { SkillRoutes } from "./app/module/skill/Skill.route";
 import { WorkOrderRoutes } from "./app/module/work-order/work-order.route";
 import { PaymentRoutes } from "./app/module/payment/payment.route";
 import { FeedbackRoutes } from "./app/module/feedback/feedback.route";
+import { NotificationRoutes } from "./app/module/notification/notification.route";
 
 const app: Application = express();
 
@@ -47,6 +48,7 @@ app.use("/api/v1/technicians", TechnicianRoutes);
 app.use("/api/v1/skills", SkillRoutes);
 app.use("/api/v1/work-orders", WorkOrderRoutes);
 app.use("/api/v1/feedbacks", FeedbackRoutes);
+app.use("/api/v1/notifications", NotificationRoutes);
 
 // app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
 //   try {

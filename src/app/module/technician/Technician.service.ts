@@ -14,6 +14,8 @@ import { prisma } from "../../lib/prisma";
 import { redisClient } from "../../lib/redis";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
+// 🔔 NOTIFICATION: import
+import { NotificationEvents } from "../notification/notification.events";
 import {
   IAddSkillPayload,
   IApplyAsTechnicianPayload,
@@ -300,12 +302,18 @@ const verifyTechnicianEmail = async (
 
   await redisClient.del(otpKey(email));
 
-  return prisma.user.update({
+  // 🔔 NOTIFICATION: "return" ke variable-e rakha holo
+  const verified = await prisma.user.update({
     where: { id: user.id },
     data: { emailVerified: true },
     omit: { password: true },
     include: { technician: { include: technicianInclude } },
   });
+
+  // 🔔 NOTIFICATION: email verify hole managers-ke jano je notun application ashche
+  void NotificationEvents.technicianApplicationSubmitted(user.technician.id);
+
+  return verified;
 };
 
 const resendApplicationOtp = async (payload: IResendOtpPayload) => {
@@ -421,6 +429,9 @@ const reviewTechnician = async (
   } catch (error) {
     console.log("Failed to send technician review email:", error);
   }
+
+  // 🔔 NOTIFICATION: technician-ke in-app notification (approve/reject)
+  void NotificationEvents.technicianApplicationReviewed(technicianId);
 
   return result;
 };
