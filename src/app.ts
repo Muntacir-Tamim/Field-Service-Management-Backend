@@ -22,6 +22,7 @@ import { WorkOrderRoutes } from "./app/module/work-order/work-order.route";
 import { PaymentRoutes } from "./app/module/payment/payment.route";
 import { FeedbackRoutes } from "./app/module/feedback/feedback.route";
 import { NotificationRoutes } from "./app/module/notification/notification.route";
+import { AnalyticsRoutes } from "./app/module/analytics/analytics.route";
 
 const app: Application = express();
 
@@ -49,6 +50,7 @@ app.use("/api/v1/skills", SkillRoutes);
 app.use("/api/v1/work-orders", WorkOrderRoutes);
 app.use("/api/v1/feedbacks", FeedbackRoutes);
 app.use("/api/v1/notifications", NotificationRoutes);
+app.use("/api/v1/analytics", AnalyticsRoutes);
 
 // app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
 //   try {
