@@ -1,0 +1,3726 @@
+{
+  "info": {
+    "_postman_id": "6911f063-5425-4cac-ae04-5fd53ed2e399",
+    "name": "Field Service Management API",
+    "description": "# Field Service Management API\n\nPostman collection for the Field Service Management backend (`/api/v1`).\n\n## Setup (2 minutes)\n1. Open the **Variables** tab of this collection.\n2. Set `baseUrl` (default `http://localhost:5000/api/v1`).\n3. Fill the **password** variables with the values from your `.env` (seeded accounts: super admin, admin, manager, technician). Emails are pre-filled with the example values, change them if yours differ.\n4. Run the requests in **0. Login** for the roles you need.\n\nEvery request already uses the token of its role (`customerToken`, `managerToken`, ...), so you can jump between roles without logging in again. IDs (`serviceRequestId`, `assignmentId`, `workOrderId`, `paymentId`...) are saved automatically by test scripts.\n\n## Happy path (in this order)\n| # | Role | Request |\n|---|---|---|\n| 1 | Customer | 1. Auth → Register customer → Verify email (OTP from email) |\n| 2 | Manager | 3. Skills → Create skill |\n| 3 | Customer | 5. Service Requests → Create service request |\n| 4 | Manager | Mark under review → Review: APPROVE |\n| 5 | Manager | 6. Assignments → Available technicians → Create assignment |\n| 6 | Technician | Confirm assignment (creates the work order) |\n| 7 | Manager | 7. Work Orders → Get work orders of a request (saves `workOrderId`) |\n| 8 | Technician | En route → Arrived → Start work → Add part → Service report → Complete work |\n| 9 | Manager | Verify work order |\n| 10 | Manager | 8. Payments → Create invoice |\n| 11 | Customer / Manager | Initiate bKash payment, or Mark paid in cash |\n| 12 | Customer | 9. Feedback → Create feedback |\n\n## Notes\n- The API accepts the token from a cookie **or** the `Authorization: Bearer` header, and prefers the cookie. A collection pre-request script clears cookies so the per-role Bearer token is always used.\n- Technician needs to be **approved** (4. Technicians → Review application) and **available** before they can be assigned.\n- Time slots for assignments are generated automatically (tomorrow, 2 hours).\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// The API reads the accessToken COOKIE before the Authorization header.",
+          "// Clear cookies so the per-role Bearer token on each request is always the one used.",
+          "try {",
+          "  const jar = pm.cookies.jar();",
+          "  jar.clear(pm.variables.replaceIn('{{baseUrl}}'), function () {});",
+          "} catch (e) {}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1"
+    },
+    {
+      "key": "customerEmail",
+      "value": "customer@example.com"
+    },
+    {
+      "key": "customerPassword",
+      "value": ""
+    },
+    {
+      "key": "managerEmail",
+      "value": "manager@gmail.com"
+    },
+    {
+      "key": "managerPassword",
+      "value": ""
+    },
+    {
+      "key": "technicianEmail",
+      "value": "testertechnician@gmail.com"
+    },
+    {
+      "key": "technicianPassword",
+      "value": ""
+    },
+    {
+      "key": "adminEmail",
+      "value": "testeradmin@gmail.com"
+    },
+    {
+      "key": "adminPassword",
+      "value": ""
+    },
+    {
+      "key": "superAdminEmail",
+      "value": "superadmin@gmail.com"
+    },
+    {
+      "key": "superAdminPassword",
+      "value": ""
+    },
+    {
+      "key": "customerToken",
+      "value": ""
+    },
+    {
+      "key": "managerToken",
+      "value": ""
+    },
+    {
+      "key": "technicianToken",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "superAdminToken",
+      "value": ""
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "skillId",
+      "value": ""
+    },
+    {
+      "key": "technicianId",
+      "value": ""
+    },
+    {
+      "key": "serviceRequestId",
+      "value": ""
+    },
+    {
+      "key": "assignmentId",
+      "value": ""
+    },
+    {
+      "key": "workOrderId",
+      "value": ""
+    },
+    {
+      "key": "partId",
+      "value": ""
+    },
+    {
+      "key": "attachmentId",
+      "value": ""
+    },
+    {
+      "key": "paymentId",
+      "value": ""
+    },
+    {
+      "key": "feedbackId",
+      "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    },
+    {
+      "key": "slotStart",
+      "value": ""
+    },
+    {
+      "key": "slotEnd",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Login (do this first)",
+      "item": [
+        {
+          "name": "Login as Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nLogs in and stores the token in `customerToken`. Every request of the matching role uses this token automatically.\n\nSet `customerEmail` and `customerPassword` in the collection **Variables** tab first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.success && body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set('customerToken', body.data.accessToken);",
+                  "  if (body.data.refreshToken) pm.collectionVariables.set('refreshToken', body.data.refreshToken);",
+                  "  pm.test('Logged in, token saved to customerToken', () => pm.expect(body.data.accessToken).to.be.a('string'));",
+                  "} else {",
+                  "  pm.test('Login succeeded', () => pm.expect.fail(body.message || 'login failed'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Manager",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nLogs in and stores the token in `managerToken`. Every request of the matching role uses this token automatically.\n\nSet `managerEmail` and `managerPassword` in the collection **Variables** tab first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{managerEmail}}\",\n  \"password\": \"{{managerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.success && body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set('managerToken', body.data.accessToken);",
+                  "  if (body.data.refreshToken) pm.collectionVariables.set('refreshToken', body.data.refreshToken);",
+                  "  pm.test('Logged in, token saved to managerToken', () => pm.expect(body.data.accessToken).to.be.a('string'));",
+                  "} else {",
+                  "  pm.test('Login succeeded', () => pm.expect.fail(body.message || 'login failed'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Technician",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nLogs in and stores the token in `technicianToken`. Every request of the matching role uses this token automatically.\n\nSet `technicianEmail` and `technicianPassword` in the collection **Variables** tab first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{technicianEmail}}\",\n  \"password\": \"{{technicianPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.success && body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set('technicianToken', body.data.accessToken);",
+                  "  if (body.data.refreshToken) pm.collectionVariables.set('refreshToken', body.data.refreshToken);",
+                  "  pm.test('Logged in, token saved to technicianToken', () => pm.expect(body.data.accessToken).to.be.a('string'));",
+                  "} else {",
+                  "  pm.test('Login succeeded', () => pm.expect.fail(body.message || 'login failed'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nLogs in and stores the token in `adminToken`. Every request of the matching role uses this token automatically.\n\nSet `adminEmail` and `adminPassword` in the collection **Variables** tab first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.success && body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set('adminToken', body.data.accessToken);",
+                  "  if (body.data.refreshToken) pm.collectionVariables.set('refreshToken', body.data.refreshToken);",
+                  "  pm.test('Logged in, token saved to adminToken', () => pm.expect(body.data.accessToken).to.be.a('string'));",
+                  "} else {",
+                  "  pm.test('Login succeeded', () => pm.expect.fail(body.message || 'login failed'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Super Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nLogs in and stores the token in `superAdminToken`. Every request of the matching role uses this token automatically.\n\nSet `superAdminEmail` and `superAdminPassword` in the collection **Variables** tab first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{superAdminEmail}}\",\n  \"password\": \"{{superAdminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.success && body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set('superAdminToken', body.data.accessToken);",
+                  "  if (body.data.refreshToken) pm.collectionVariables.set('refreshToken', body.data.refreshToken);",
+                  "  pm.test('Logged in, token saved to superAdminToken', () => pm.expect(body.data.accessToken).to.be.a('string'));",
+                  "} else {",
+                  "  pm.test('Login succeeded', () => pm.expect.fail(body.message || 'login failed'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Log in once per role. Tokens are kept in separate variables, so you can jump between customer, manager and technician requests without logging in again."
+    },
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Register customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nCreates an unverified customer and emails a 6-digit OTP.\n\nPassword: 8+ chars with lowercase, uppercase, number and special character.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Customer\",\n  \"email\": \"customer@example.com\",\n  \"password\": \"Customer@12345\",\n  \"customer\": {\n    \"contactNumber\": \"01700000000\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify email (OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify-email"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nVerifies the OTP from the email. Also logs the customer in and saves the token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.success && body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set('customerToken', body.data.accessToken);",
+                  "  if (body.data.refreshToken) pm.collectionVariables.set('refreshToken', body.data.refreshToken);",
+                  "  pm.test('Logged in, token saved to customerToken', () => pm.expect(body.data.accessToken).to.be.a('string'));",
+                  "} else {",
+                  "  pm.test('Login succeeded', () => pm.expect.fail(body.message || 'login failed'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nBody needs a Google **ID token** obtained by the frontend.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"<google-id-token>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{refreshToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh-token"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nThe API reads the refresh token from the **refreshToken cookie** only. This request sends it via a Cookie header from the `refreshToken` variable (saved at login). Result is saved to `accessToken`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.success && body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "  if (body.data.refreshToken) pm.collectionVariables.set('refreshToken', body.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nReturns the profile of the logged-in user. Works for every role: change the token in the Authorization tab to test other roles."
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forgot-password"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nSends a reset OTP to the email.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "reset-password"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nResets the password using the OTP.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewPass@12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. User",
+      "item": [
+        {
+          "name": "Upload profile image",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user/profile-image",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "profile-image"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nAny logged-in user. Multipart, file field name: `profileImage`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "profileImage",
+                  "type": "file"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Skills",
+      "item": [
+        {
+          "name": "List skills",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": ["{{baseUrl}}"],
+              "path": ["skills"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nPublic list of the skill catalog. Saves the first skill id to `skillId`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('skillId', value);",
+                  "  console.log('skillId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create skill",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": ["{{baseUrl}}"],
+              "path": ["skills"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only. Saves the new id to `skillId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"AC Repair\",\n  \"category\": \"HVAC\",\n  \"description\": \"Split and window AC servicing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = d && d.id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('skillId', value);",
+                  "  console.log('skillId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update skill",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills/{{skillId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["skills", "{{skillId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nProvide at least one field.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated description\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete skill",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/skills/{{skillId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["skills", "{{skillId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Technicians",
+      "item": [
+        {
+          "name": "Apply as technician",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/apply",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "apply"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nMultipart. Field `data` is a **JSON string**; files: `resume` (1) and `documents` (up to 5). An OTP is emailed.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "data",
+                  "value": "{\"name\": \"Rahim Technician\", \"email\": \"tech@example.com\", \"password\": \"Tech@12345\", \"technician\": {\"contactNumber\": \"01800000000\", \"gender\": \"MALE\", \"address\": \"Chattogram\", \"bio\": \"5 years of AC and electrical work\", \"experienceYears\": 5}, \"skills\": [{\"skillId\": \"{{skillId}}\", \"level\": \"EXPERT\"}]}",
+                  "type": "text"
+                },
+                {
+                  "key": "resume",
+                  "type": "file"
+                },
+                {
+                  "key": "documents",
+                  "type": "file"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify application email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/apply/verify-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "apply", "verify-email"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nVerify the OTP. The application then waits for manager review.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"tech@example.com\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resend application OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/apply/resend-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "apply", "resend-otp"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nSends a fresh OTP.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"tech@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "My profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/my-profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "my-profile"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nOwn technician profile."
+          },
+          "response": []
+        },
+        {
+          "name": "Update my profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/my-profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "my-profile"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nProvide at least one field.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contactNumber\": \"01800000001\",\n  \"bio\": \"Updated bio\",\n  \"experienceYears\": 6\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set my availability",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/my-availability",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "my-availability"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nToggle whether you can receive new assignments.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isAvailable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add my skill",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/my-skills",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "my-skills"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nLevel: BEGINNER, INTERMEDIATE or EXPERT.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skillId\": \"{{skillId}}\",\n  \"level\": \"INTERMEDIATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove my skill",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/my-skills/{{skillId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "my-skills", "{{skillId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nRemoves a skill from my profile."
+          },
+          "response": []
+        },
+        {
+          "name": "List technicians",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/technicians",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians"],
+              "query": [
+                {
+                  "key": "searchTerm",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "verificationStatus",
+                  "value": "PENDING",
+                  "disabled": true,
+                  "description": "PENDING | APPROVED | REJECTED"
+                },
+                {
+                  "key": "isAvailable",
+                  "value": "true",
+                  "disabled": true
+                },
+                {
+                  "key": "skillId",
+                  "value": "{{skillId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only. Saves the first technician id to `technicianId`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('technicianId', value);",
+                  "  console.log('technicianId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get technician",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/{{technicianId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "{{technicianId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": []
+        },
+        {
+          "name": "Review application: APPROVE",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/{{technicianId}}/review",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "{{technicianId}}", "review"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nApproves the technician application.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationStatus\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Review application: REJECT",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/technicians/{{technicianId}}/review",
+              "host": ["{{baseUrl}}"],
+              "path": ["technicians", "{{technicianId}}", "review"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nRejecting needs a reason of at least 5 characters.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationStatus\": \"REJECTED\",\n  \"rejectionReason\": \"Documents are not readable\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Service Requests",
+      "item": [
+        {
+          "name": "Create service request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-requests"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nMultipart. Up to 5 files in field `attachments`. Description must be 10+ characters. Saves the id to `serviceRequestId`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "AC not cooling",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "The split AC in the bedroom is running but not cooling.",
+                  "type": "text"
+                },
+                {
+                  "key": "priority",
+                  "value": "MEDIUM",
+                  "type": "text",
+                  "description": "LOW | MEDIUM | HIGH | URGENT"
+                },
+                {
+                  "key": "preferredDate",
+                  "value": "2026-10-10",
+                  "type": "text"
+                },
+                {
+                  "key": "address",
+                  "value": "House 12, Road 3, Khulshi",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "Chattogram",
+                  "type": "text"
+                },
+                {
+                  "key": "attachments",
+                  "type": "file"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = d && d.id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('serviceRequestId', value);",
+                  "  console.log('serviceRequestId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-requests/my-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-requests", "my-requests"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "PENDING",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nCustomer's own requests. Saves the first id to `serviceRequestId`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('serviceRequestId', value);",
+                  "  console.log('serviceRequestId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel my request",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-requests/{{serviceRequestId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-requests", "{{serviceRequestId}}", "cancel"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nCustomer cancels their own request."
+          },
+          "response": []
+        },
+        {
+          "name": "List all requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-requests"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "PENDING",
+                  "disabled": true
+                },
+                {
+                  "key": "priority",
+                  "value": "HIGH",
+                  "disabled": true
+                },
+                {
+                  "key": "city",
+                  "value": "Chattogram",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('serviceRequestId', value);",
+                  "  console.log('serviceRequestId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark under review",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-requests/{{serviceRequestId}}/under-review",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "service-requests",
+                "{{serviceRequestId}}",
+                "under-review"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nPENDING → UNDER_REVIEW."
+          },
+          "response": []
+        },
+        {
+          "name": "Review: APPROVE",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-requests/{{serviceRequestId}}/review",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-requests", "{{serviceRequestId}}", "review"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nApproves the request so it can be assigned.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Review: REJECT",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-requests/{{serviceRequestId}}/review",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-requests", "{{serviceRequestId}}", "review"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\n`rejectionReason` is required when rejecting.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"REJECTED\",\n  \"rejectionReason\": \"Outside our service area\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get service request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-requests/{{serviceRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-requests", "{{serviceRequestId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nCustomer, technician or management. Use the matching token in the Authorization tab."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Assignments",
+      "item": [
+        {
+          "name": "Available technicians",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignments/available-technicians?scheduledStart={{slotStart}}&scheduledEnd={{slotEnd}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignments", "available-technicians"],
+              "query": [
+                {
+                  "key": "scheduledStart",
+                  "value": "{{slotStart}}",
+                  "disabled": false
+                },
+                {
+                  "key": "scheduledEnd",
+                  "value": "{{slotEnd}}",
+                  "disabled": false
+                },
+                {
+                  "key": "skillId",
+                  "value": "{{skillId}}",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nApproved, available technicians with no conflicting visit in the window. `slotStart`/`slotEnd` are generated (tomorrow, 2 hours). Saves the first to `technicianId`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const s = new Date(Date.now() + 24 * 60 * 60 * 1000);",
+                  "s.setMinutes(0, 0, 0);",
+                  "const e = new Date(s.getTime() + 2 * 60 * 60 * 1000);",
+                  "pm.collectionVariables.set('slotStart', s.toISOString());",
+                  "pm.collectionVariables.set('slotEnd', e.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('technicianId', value);",
+                  "  console.log('technicianId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create assignment (assign + schedule)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/assignments",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignments"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nThe service request must be `APPROVED`. Returns 409 if the technician already has a visit in the window. Saves the id to `assignmentId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceRequestId\": \"{{serviceRequestId}}\",\n  \"technicianId\": \"{{technicianId}}\",\n  \"scheduledStart\": \"{{slotStart}}\",\n  \"scheduledEnd\": \"{{slotEnd}}\",\n  \"notes\": \"Bring a ladder\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const s = new Date(Date.now() + 24 * 60 * 60 * 1000);",
+                  "s.setMinutes(0, 0, 0);",
+                  "const e = new Date(s.getTime() + 2 * 60 * 60 * 1000);",
+                  "pm.collectionVariables.set('slotStart', s.toISOString());",
+                  "pm.collectionVariables.set('slotEnd', e.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = d && d.id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('assignmentId', value);",
+                  "  console.log('assignmentId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignments",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignments"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING",
+                  "disabled": true,
+                  "description": "PENDING | CONFIRMED | CANCELLED"
+                },
+                {
+                  "key": "technicianId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "serviceRequestId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "scheduledStart",
+                  "disabled": true,
+                  "description": "createdAt | scheduledStart | status"
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('assignmentId', value);",
+                  "  console.log('assignmentId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignments/my-assignments",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignments", "my-assignments"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nTechnician's own assignments."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('assignmentId', value);",
+                  "  console.log('assignmentId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get assignment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignments/{{assignmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignments", "{{assignmentId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nTechnician or management."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm assignment",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignments/{{assignmentId}}/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignments", "{{assignmentId}}", "confirm"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nTechnician confirms. This creates the work order (status SCHEDULED). Use *Work Orders → Get work orders of a request* afterwards to save `workOrderId`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = (d && d.workOrder && d.workOrder.id) || (d && d.workOrderId); } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('workOrderId', value);",
+                  "  console.log('workOrderId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel assignment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/assignments/{{assignmentId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignments", "{{assignmentId}}", "cancel"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nTechnician or management. Reason needs 3+ characters.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Technician is unwell\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reschedule assignment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/assignments/{{assignmentId}}/reschedule",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignments", "{{assignmentId}}", "reschedule"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nCancels the old assignment and creates a new one. `technicianId` is optional (to switch technician).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledStart\": \"{{slotStart}}\",\n  \"scheduledEnd\": \"{{slotEnd}}\",\n  \"reason\": \"Customer asked for another time\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const s = new Date(Date.now() + 24 * 60 * 60 * 1000);",
+                  "s.setMinutes(0, 0, 0);",
+                  "const e = new Date(s.getTime() + 2 * 60 * 60 * 1000);",
+                  "pm.collectionVariables.set('slotStart', s.toISOString());",
+                  "pm.collectionVariables.set('slotEnd', e.toISOString());"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Work Orders",
+      "item": [
+        {
+          "name": "My work orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/my-work-orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "my-work-orders"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nTechnician's own. Saves the first id to `workOrderId`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('workOrderId', value);",
+                  "  console.log('workOrderId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get work orders of a request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/service-request/{{serviceRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "service-request", "{{serviceRequestId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nCustomer, technician or management. Saves the first id to `workOrderId`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('workOrderId', value);",
+                  "  console.log('workOrderId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List all work orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "COMPLETED",
+                  "disabled": true
+                },
+                {
+                  "key": "technicianId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "serviceRequestId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('workOrderId', value);",
+                  "  console.log('workOrderId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get work order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nCustomer and technician see only their own; management sees all."
+          },
+          "response": []
+        },
+        {
+          "name": "1. En route",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/en-route",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}", "en-route"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nSCHEDULED → TECHNICIAN_EN_ROUTE."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Arrived",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/arrived",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}", "arrived"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nTECHNICIAN_EN_ROUTE → ARRIVED."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Start work",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}", "start"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nARRIVED → IN_PROGRESS.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"problemFound\": \"Gas leakage in the outdoor unit\",\n  \"workDescription\": \"Refilling gas and replacing the valve\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add part",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/parts",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}", "parts"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nSaves the part id to `partId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gas valve\",\n  \"quantity\": 1,\n  \"unitCost\": 850,\n  \"notes\": \"Original part\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = d && d.id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('partId', value);",
+                  "  console.log('partId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove part",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/parts/{{partId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}", "parts", "{{partId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nRemoves a part."
+          },
+          "response": []
+        },
+        {
+          "name": "Add attachments",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/attachments",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}", "attachments"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nMultipart, field `attachments`, max 5 files. Saves the first attachment id to `attachmentId`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "attachments",
+                  "type": "file"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = (list && list[0] && list[0].id) || (d && d.id); } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('attachmentId', value);",
+                  "  console.log('attachmentId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove attachment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/attachments/{{attachmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "work-orders",
+                "{{workOrderId}}",
+                "attachments",
+                "{{attachmentId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nRemoves an attachment."
+          },
+          "response": []
+        },
+        {
+          "name": "Upsert service report",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/service-report",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}", "service-report"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nCreates or updates the report.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"summary\": \"AC serviced and gas refilled\",\n  \"findings\": \"Valve was leaking; compressor is healthy\",\n  \"recommendations\": \"Service every 6 months\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Complete work",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}", "complete"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nIN_PROGRESS → COMPLETED. Multipart: `laborHours` (>0, max 100), `completionNotes`, optional `completionImage`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "laborHours",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "completionNotes",
+                  "value": "Work finished, tested for 30 minutes",
+                  "type": "text"
+                },
+                {
+                  "key": "completionImage",
+                  "type": "file"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Verify work order",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/work-orders/{{workOrderId}}/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["work-orders", "{{workOrderId}}", "verify"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nCOMPLETED → VERIFIED. Required before an invoice can be created."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Payments & Invoices",
+      "item": [
+        {
+          "name": "Create invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/invoices",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "invoices"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nWork order must be `VERIFIED` and have labor hours. Total = parts + laborHours × rate − discount + tax. Saves the id to `paymentId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"discount\": 0,\n  \"taxPercent\": 0,\n  \"dueDate\": \"2026-10-20\",\n  \"notes\": \"Thank you for your business\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = d && d.id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('paymentId', value);",
+                  "  console.log('paymentId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment/invoices",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "invoices"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "UNPAID",
+                  "disabled": true,
+                  "description": "UNPAID | PAID | FAILED | CANCELLED | REFUNDED"
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('paymentId', value);",
+                  "  console.log('paymentId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment/my-invoices",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "my-invoices"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nCustomer's own invoices."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('paymentId', value);",
+                  "  console.log('paymentId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get invoice",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment/invoices/{{paymentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "invoices", "{{paymentId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nCustomer (own) or management."
+          },
+          "response": []
+        },
+        {
+          "name": "Download invoice PDF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment/invoices/{{paymentId}}/pdf",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "invoices", "{{paymentId}}", "pdf"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nCustomer (own) or management. Use *Send and Download* in Postman to save the PDF."
+          },
+          "response": []
+        },
+        {
+          "name": "Initiate bKash payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/initiate",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "initiate"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nStarts a bKash checkout for the invoice. The response contains the bKash URL to open in a browser.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentId\": \"{{paymentId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "bKash callback (called by bKash)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment/callback",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "callback"],
+              "query": [
+                {
+                  "key": "paymentID",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "success",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "**Access:** Public (no login)\n\nbKash calls this itself and the API redirects to the frontend. Do not use manually."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark paid in cash",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/invoices/{{paymentId}}/cash",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "invoices", "{{paymentId}}", "cash"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nRecords a cash payment; the service request becomes COMPLETED.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Received in cash at site\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refund invoice",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/invoices/{{paymentId}}/refund",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "invoices", "{{paymentId}}", "refund"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nFull refund of a PAID invoice (calls bKash for bKash payments).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Service was not satisfactory\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9. Feedback",
+      "item": [
+        {
+          "name": "Create feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feedbacks",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedbacks"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nOnly after the request is completed and paid; one per request. Rating 1–5. Saves the id to `feedbackId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceRequestId\": \"{{serviceRequestId}}\",\n  \"rating\": 5,\n  \"comment\": \"Fast and professional\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = d && d.id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('feedbackId', value);",
+                  "  console.log('feedbackId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My feedbacks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedbacks/my-feedbacks",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedbacks", "my-feedbacks"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nCustomer's own feedback."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('feedbackId', value);",
+                  "  console.log('feedbackId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Feedback about me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedbacks/technician/my-feedbacks",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedbacks", "technician", "my-feedbacks"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nTechnician's received feedback."
+          },
+          "response": []
+        },
+        {
+          "name": "Feedback of a technician",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedbacks/technician/{{technicianId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedbacks", "technician", "{{technicianId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": []
+        },
+        {
+          "name": "Feedback of a request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedbacks/service-request/{{serviceRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedbacks", "service-request", "{{serviceRequestId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nCustomer, technician or management."
+          },
+          "response": []
+        },
+        {
+          "name": "List all feedbacks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedbacks",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedbacks"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                },
+                {
+                  "key": "rating",
+                  "value": "5",
+                  "disabled": true
+                },
+                {
+                  "key": "technicianId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('feedbackId', value);",
+                  "  console.log('feedbackId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update my feedback",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feedbacks/{{feedbackId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedbacks", "{{feedbackId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nProvide at least one field.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Good, but arrived a bit late\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete feedback",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/feedbacks/{{feedbackId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedbacks", "{{feedbackId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nCustomer (own) or management."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10. Notifications",
+      "item": [
+        {
+          "name": "My notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "isRead",
+                  "value": "false",
+                  "disabled": true
+                },
+                {
+                  "key": "type",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nAny logged-in user. Saves the first id to `notificationId`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('notificationId', value);",
+                  "  console.log('notificationId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unread count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/unread-count",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "unread-count"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nFor the navbar badge."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark all as read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read-all"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nMarks everything as read."
+          },
+          "response": []
+        },
+        {
+          "name": "Clear read notifications",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/clear-read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "clear-read"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nDeletes all read notifications."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark one as read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "read"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nMarks a single notification as read."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete one",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nDeletes a single notification."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11. Analytics",
+      "item": [
+        {
+          "name": "Dashboard stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "dashboard"],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-10-01",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-10-31",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": []
+        },
+        {
+          "name": "Technician leaderboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/technicians?sortBy=averageRating&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "technicians"],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "averageRating",
+                  "disabled": false,
+                  "description": "completedJobs | averageRating | laborHours"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": false
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": []
+        },
+        {
+          "name": "My stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/technicians/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "technicians", "me"],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nTechnician's own numbers."
+          },
+          "response": []
+        },
+        {
+          "name": "Technician stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/technicians/{{technicianId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "technicians", "{{technicianId}}"],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** MANAGER\n\nManagement only."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
