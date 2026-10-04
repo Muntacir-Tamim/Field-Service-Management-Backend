@@ -23,8 +23,14 @@ import { PaymentRoutes } from "./app/module/payment/payment.route";
 import { FeedbackRoutes } from "./app/module/feedback/feedback.route";
 import { NotificationRoutes } from "./app/module/notification/notification.route";
 import { AnalyticsRoutes } from "./app/module/analytics/analytics.route";
+import helmet from "helmet";
+import { authLimiter, globalLimiter } from "./app/middleware/rateLimiter";
 
 const app: Application = express();
+
+app.set("trust proxy", 1);
+
+app.use(helmet());
 
 app.use(
   cors({
@@ -40,7 +46,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-app.use("/api/v1/auth", AuthRoutes);
+//app.use("/api/v1/auth", AuthRoutes);
+app.use("/api/v1", globalLimiter);
+app.use("/api/v1/auth", authLimiter, AuthRoutes);
 app.use("/api/v1/user", UserRoutes);
 app.use("/api/v1/service-requests", ServiceRequestRoutes);
 app.use("/api/v1/payment", PaymentRoutes);
