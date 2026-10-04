@@ -8,7 +8,10 @@ import { IInvoiceQuery } from "./payment.interface";
 import { streamInvoicePdf } from "./payment.invoice-pdf";
 
 const createInvoice = catchAsync(async (req: Request, res: Response) => {
-  const result = await PaymentServices.createInvoice(req.body);
+  const result = await PaymentServices.createInvoice(
+    req.body,
+    req.user as IRequestUser,
+  );
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -83,23 +86,11 @@ const paymentCallback = catchAsync(async (req: Request, res: Response) => {
   res.redirect(redirectUrl);
 });
 
-const markCashPaid = catchAsync(async (req: Request, res: Response) => {
-  const result = await PaymentServices.markCashPaid(
-    req.params.paymentId as string,
-    req.body,
-  );
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Invoice marked as paid (cash)",
-    data: result,
-  });
-});
-
 const refundPayment = catchAsync(async (req: Request, res: Response) => {
   const result = await PaymentServices.refundPayment(
     req.params.paymentId as string,
     req.body,
+    req.user as IRequestUser,
   );
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -117,6 +108,5 @@ export const PaymentControllers = {
   downloadInvoicePdf,
   initiatePayment,
   paymentCallback,
-  markCashPaid,
   refundPayment,
 };

@@ -14,8 +14,8 @@ import { prisma } from "../../lib/prisma";
 import { redisClient } from "../../lib/redis";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
-// 🔔 NOTIFICATION: import
 import { NotificationEvents } from "../notification/notification.events";
+import { AuditLogServices } from "../audit-log/audit-log.service";
 import {
   IAddSkillPayload,
   IApplyAsTechnicianPayload,
@@ -387,6 +387,19 @@ const reviewTechnician = async (
       "Application was reviewed by someone else. Please refresh.",
     );
   }
+
+  void AuditLogServices.record({
+    action: "TECHNICIAN_REVIEWED",
+    entityType: "Technician",
+    entityId: technicianId,
+    description: `Technician application ${technician.verificationStatus} → ${payload.verificationStatus}`,
+    actor: reviewer,
+    oldValue: { verificationStatus: technician.verificationStatus },
+    newValue: { verificationStatus: payload.verificationStatus },
+    metadata: isApproved
+      ? undefined
+      : { rejectionReason: payload.rejectionReason ?? null },
+  });
 
   const result = await prisma.technician.findUniqueOrThrow({
     where: { id: technicianId },

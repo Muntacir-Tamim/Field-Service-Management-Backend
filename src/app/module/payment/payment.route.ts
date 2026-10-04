@@ -4,7 +4,6 @@ import { auth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { PaymentControllers } from "./payment.controller";
 import {
-  CashPaymentZodSchema,
   CreateInvoiceZodSchema,
   InitiatePaymentZodSchema,
   RefundZodSchema,
@@ -37,13 +36,6 @@ router.post(
 );
 
 router.get("/invoices", auth(...MANAGEMENT), PaymentControllers.getAllInvoices);
-
-router.patch(
-  "/invoices/:paymentId/cash",
-  auth(...MANAGEMENT),
-  validateRequest(CashPaymentZodSchema),
-  PaymentControllers.markCashPaid,
-);
 
 router.patch(
   "/invoices/:paymentId/refund",

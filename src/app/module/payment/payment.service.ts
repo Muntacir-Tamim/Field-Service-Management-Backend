@@ -10,7 +10,6 @@ import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
 import { NotificationEvents } from "../notification/notification.events";
 import type {
-  ICashPaymentPayload,
   ICreateInvoicePayload,
   IInitiatePaymentPayload,
   IInvoiceQuery,
@@ -508,42 +507,6 @@ const paymentCallback = async (query: Record<string, any>) => {
   return { redirectUrl: redirectTo("success") };
 };
 
-const markCashPaid = async (
-  paymentId: string,
-  payload: ICashPaymentPayload,
-) => {
-  const payment = await getPaymentOrThrow(paymentId);
-
-  await prisma.$transaction(async (tx) => {
-    const updated = await tx.payment.updateMany({
-      where: { id: paymentId, status: { in: PAYABLE_STATUSES } },
-      data: {
-        status: "PAID",
-        method: "CASH",
-        paidAt: new Date(),
-        notes: payload.notes
-          ? [payment.notes, `Cash: ${payload.notes}`].filter(Boolean).join("\n")
-          : payment.notes,
-      },
-    });
-
-    if (updated.count === 0) {
-      throw new AppError(
-        httpStatus.CONFLICT,
-        `Invoice cannot be marked as cash paid. Current status: ${payment.status}`,
-      );
-    }
-
-    await tx.serviceRequest.update({
-      where: { id: payment.workOrder.assignment.serviceRequest.id },
-      data: { status: "COMPLETED" },
-    });
-  });
-
-  void NotificationEvents.paymentReceived(paymentId); // 🔔 NOTIFICATION
-  return toInvoiceView(await getPaymentOrThrow(paymentId));
-};
-
 const refundPayment = async (paymentId: string, payload: IRefundPayload) => {
   const payment = await getPaymentOrThrow(paymentId);
 
@@ -610,6 +573,5 @@ export const PaymentServices = {
   getSingleInvoice,
   initiatePayment,
   paymentCallback,
-  markCashPaid,
   refundPayment,
 };

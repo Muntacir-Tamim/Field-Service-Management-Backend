@@ -1,7 +1,7 @@
 model Payment {
   id            String        @id @default(uuid())
   status        PaymentStatus @default(UNPAID)
-  method        PaymentMethod @default(CASH)
+  method        PaymentMethod?
 
   invoiceNumber String  @unique 
   subtotal      Decimal @db.Decimal(10, 2)

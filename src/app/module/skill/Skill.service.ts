@@ -1,6 +1,8 @@
 import httpStatus from "http-status";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
+import type { IRequestUser } from "../auth/auth.interface";
+import { AuditLogServices } from "../audit-log/audit-log.service";
 
 interface ISkillPayload {
   name: string;
@@ -8,7 +10,7 @@ interface ISkillPayload {
   description?: string;
 }
 
-const createSkill = async (payload: ISkillPayload) => {
+const createSkill = async (payload: ISkillPayload, user: IRequestUser) => {
   const exists = await prisma.skill.findUnique({
     where: { name: payload.name },
   });
@@ -18,7 +20,19 @@ const createSkill = async (payload: ISkillPayload) => {
       "A skill with this name already exists",
     );
   }
-  return prisma.skill.create({ data: payload });
+
+  const created = await prisma.skill.create({ data: payload });
+
+  void AuditLogServices.record({
+    action: "SKILL_CREATED",
+    entityType: "Skill",
+    entityId: created.id,
+    description: `Skill "${created.name}" created`,
+    actor: user,
+    newValue: { name: created.name, category: created.category },
+  });
+
+  return created;
 };
 
 const getAllSkills = async (query: {
@@ -41,6 +55,7 @@ const getAllSkills = async (query: {
 const updateSkill = async (
   skillId: string,
   payload: Partial<ISkillPayload>,
+  user: IRequestUser,
 ) => {
   const skill = await prisma.skill.findUnique({ where: { id: skillId } });
   if (!skill) throw new AppError(httpStatus.NOT_FOUND, "Skill Not Found");
@@ -57,10 +72,33 @@ const updateSkill = async (
     }
   }
 
-  return prisma.skill.update({ where: { id: skillId }, data: payload });
+  const updated = await prisma.skill.update({
+    where: { id: skillId },
+    data: payload,
+  });
+
+  void AuditLogServices.record({
+    action: "SKILL_UPDATED",
+    entityType: "Skill",
+    entityId: skillId,
+    description: `Skill "${skill.name}" updated`,
+    actor: user,
+    oldValue: {
+      name: skill.name,
+      category: skill.category,
+      description: skill.description ?? null,
+    },
+    newValue: {
+      name: updated.name,
+      category: updated.category,
+      description: updated.description ?? null,
+    },
+  });
+
+  return updated;
 };
 
-const deleteSkill = async (skillId: string) => {
+const deleteSkill = async (skillId: string, user: IRequestUser) => {
   const skill = await prisma.skill.findUnique({
     where: { id: skillId },
     include: { _count: { select: { technicians: true } } },
@@ -75,6 +113,16 @@ const deleteSkill = async (skillId: string) => {
   }
 
   await prisma.skill.delete({ where: { id: skillId } });
+
+  void AuditLogServices.record({
+    action: "SKILL_DELETED",
+    entityType: "Skill",
+    entityId: skillId,
+    description: `Skill "${skill.name}" deleted`,
+    actor: user,
+    oldValue: { name: skill.name, category: skill.category },
+  });
+
   return null;
 };
 

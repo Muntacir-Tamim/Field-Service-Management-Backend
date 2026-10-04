@@ -22,10 +22,6 @@ export const InitiatePaymentZodSchema = z.object({
   paymentId: z.string().min(1, "paymentId is required"),
 });
 
-export const CashPaymentZodSchema = z.object({
-  notes: z.string().max(300).optional(),
-});
-
 export const RefundZodSchema = z.object({
   reason: z
     .string()

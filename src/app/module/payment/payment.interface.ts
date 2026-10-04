@@ -10,10 +10,6 @@ export interface IInitiatePaymentPayload {
   paymentId: string;
 }
 
-export interface ICashPaymentPayload {
-  notes?: string;
-}
-
 export interface IRefundPayload {
   reason: string;
 }

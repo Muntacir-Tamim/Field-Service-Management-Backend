@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
 import { NotificationEvents } from "../notification/notification.events";
+import { AuditLogServices } from "../audit-log/audit-log.service";
 import type {
   ICreateFeedbackPayload,
   IFeedbackQuery,
@@ -229,6 +230,16 @@ const deleteFeedback = async (feedbackId: string, user: IRequestUser) => {
   }
 
   await prisma.customerFeedback.delete({ where: { id: feedbackId } });
+
+  void AuditLogServices.record({
+    action: "FEEDBACK_DELETED",
+    entityType: "CustomerFeedback",
+    entityId: feedbackId,
+    description: `Feedback deleted by ${user.role}`,
+    actor: user,
+    metadata: { customerId: feedback.customerId },
+  });
+
   return { id: feedbackId };
 };
 

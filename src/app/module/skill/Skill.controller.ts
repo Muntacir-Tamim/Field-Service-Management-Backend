@@ -1,11 +1,15 @@
 import type { Request, Response } from "express";
 import httpStatus from "http-status";
 import { catchAsync } from "../../utils/catchAsync";
+import type { IRequestUser } from "../auth/auth.interface";
 import { sendResponse } from "../../utils/sendResponse";
 import { SkillServices } from "./Skill.service";
 
 const createSkill = catchAsync(async (req: Request, res: Response) => {
-  const result = await SkillServices.createSkill(req.body);
+  const result = await SkillServices.createSkill(
+    req.body,
+    req.user as IRequestUser,
+  );
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -28,6 +32,7 @@ const updateSkill = catchAsync(async (req: Request, res: Response) => {
   const result = await SkillServices.updateSkill(
     req.params.skillId as string,
     req.body,
+    req.user as IRequestUser,
   );
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -38,7 +43,10 @@ const updateSkill = catchAsync(async (req: Request, res: Response) => {
 });
 
 const deleteSkill = catchAsync(async (req: Request, res: Response) => {
-  const result = await SkillServices.deleteSkill(req.params.skillId as string);
+  const result = await SkillServices.deleteSkill(
+    req.params.skillId as string,
+    req.user as IRequestUser,
+  );
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
