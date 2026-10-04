@@ -27,13 +27,7 @@ router.post(
 );
 router.get(
   "/me",
-  auth(
-    Role.ADMIN,
-    Role.TECHNICIAN,
-    Role.MANAGER,
-    Role.CUSTOMER,
-    Role.SUPER_ADMIN,
-  ),
+  auth(Role.TECHNICIAN, Role.MANAGER, Role.CUSTOMER),
   AuthController.getMe,
 );
 router.post("/refresh-token", AuthController.refreshToken);

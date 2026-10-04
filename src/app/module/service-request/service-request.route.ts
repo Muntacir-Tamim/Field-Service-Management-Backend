@@ -33,32 +33,26 @@ router.patch(
 
 router.get(
   "/",
-  auth(Role.MANAGER, Role.ADMIN, Role.SUPER_ADMIN),
+  auth(Role.MANAGER),
   ServiceRequestController.getAllServiceRequests,
 );
 
 router.patch(
   "/:serviceRequestId/under-review",
-  auth(Role.MANAGER, Role.ADMIN, Role.SUPER_ADMIN),
+  auth(Role.MANAGER),
   ServiceRequestController.markUnderReview,
 );
 
 router.patch(
   "/:serviceRequestId/review",
-  auth(Role.MANAGER, Role.ADMIN, Role.SUPER_ADMIN),
+  auth(Role.MANAGER),
   validateRequest(ReviewServiceRequestZodSchema),
   ServiceRequestController.reviewServiceRequest,
 );
 
 router.get(
   "/:serviceRequestId",
-  auth(
-    Role.CUSTOMER,
-    Role.TECHNICIAN,
-    Role.MANAGER,
-    Role.ADMIN,
-    Role.SUPER_ADMIN,
-  ),
+  auth(Role.CUSTOMER, Role.TECHNICIAN, Role.MANAGER),
   ServiceRequestController.getSingleServiceRequest,
 );
 
