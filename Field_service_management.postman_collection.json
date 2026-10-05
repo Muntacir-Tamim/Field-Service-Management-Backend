@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "6911f063-5425-4cac-ae04-5fd53ed2e399",
     "name": "Field Service Management API",
-    "description": "# Field Service Management API\n\nPostman collection for the Field Service Management backend (`/api/v1`).\n\n## Setup (2 minutes)\n1. Open the **Variables** tab of this collection.\n2. Set `baseUrl` (default `http://localhost:5000/api/v1`).\n3. Fill the **password** variables with the values from your `.env` (seeded accounts: super admin, admin, manager, technician). Emails are pre-filled with the example values, change them if yours differ.\n4. Run the requests in **0. Login** for the roles you need.\n\nEvery request already uses the token of its role (`customerToken`, `managerToken`, ...), so you can jump between roles without logging in again. IDs (`serviceRequestId`, `assignmentId`, `workOrderId`, `paymentId`...) are saved automatically by test scripts.\n\n## Happy path (in this order)\n| # | Role | Request |\n|---|---|---|\n| 1 | Customer | 1. Auth → Register customer → Verify email (OTP from email) |\n| 2 | Manager | 3. Skills → Create skill |\n| 3 | Customer | 5. Service Requests → Create service request |\n| 4 | Manager | Mark under review → Review: APPROVE |\n| 5 | Manager | 6. Assignments → Available technicians → Create assignment |\n| 6 | Technician | Confirm assignment (creates the work order) |\n| 7 | Manager | 7. Work Orders → Get work orders of a request (saves `workOrderId`) |\n| 8 | Technician | En route → Arrived → Start work → Add part → Service report → Complete work |\n| 9 | Manager | Verify work order |\n| 10 | Manager | 8. Payments → Create invoice |\n| 11 | Customer / Manager | Initiate bKash payment, or Mark paid in cash |\n| 12 | Customer | 9. Feedback → Create feedback |\n\n## Notes\n- The API accepts the token from a cookie **or** the `Authorization: Bearer` header, and prefers the cookie. A collection pre-request script clears cookies so the per-role Bearer token is always used.\n- Technician needs to be **approved** (4. Technicians → Review application) and **available** before they can be assigned.\n- Time slots for assignments are generated automatically (tomorrow, 2 hours).\n",
+    "description": "# Field Service Management API\n\nPostman collection for the Field Service Management backend (`/api/v1`).\n\n## Setup (2 minutes)\n1. Open the **Variables** tab of this collection.\n2. Set `baseUrl` (default `http://localhost:5000/api/v1`).\n3. Fill the **password** variables with the values from your `.env` (seeded accounts: admin, technician). Emails are pre-filled with the example values, change them if yours differ.\n4. Run the requests in **0. Login** for the roles you need.\n\nEvery request already uses the token of its role (`customerToken`, `adminToken`, ...), so you can jump between roles without logging in again. IDs (`serviceRequestId`, `assignmentId`, `workOrderId`, `paymentId`...) are saved automatically by test scripts.\n\n## Happy path (in this order)\n| # | Role | Request |\n|---|---|---|\n| 1 | Customer | 1. Auth → Register customer → Verify email (OTP from email) |\n| 2 | Admin | 3. Skills → Create skill |\n| 3 | Customer | 5. Service Requests → Create service request |\n| 4 | Admin | Mark under review → Review: APPROVE |\n| 5 | Admin | 6. Assignments → Available technicians → Create assignment |\n| 6 | Technician | Confirm assignment (creates the work order) |\n| 7 | Admin | 7. Work Orders → Get work orders of a request (saves `workOrderId`) |\n| 8 | Technician | En route → Arrived → Start work → Add part → Service report → Complete work |\n| 9 | Admin | Verify work order |\n| 10 | Admin | 8. Payments → Create invoice |\n| 11 | Customer / Admin | Initiate bKash payment |\n| 12 | Customer | 9. Feedback → Create feedback |\n\n## Notes\n- The API accepts the token from a cookie **or** the `Authorization: Bearer` header, and prefers the cookie. A collection pre-request script clears cookies so the per-role Bearer token is always used.\n- Technician needs to be **approved** (4. Technicians → Review application) and **available** before they can be assigned.\n- Time slots for assignments are generated automatically (tomorrow, 2 hours).\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -45,14 +45,6 @@
       "value": ""
     },
     {
-      "key": "managerEmail",
-      "value": "manager@gmail.com"
-    },
-    {
-      "key": "managerPassword",
-      "value": ""
-    },
-    {
       "key": "technicianEmail",
       "value": "testertechnician@gmail.com"
     },
@@ -69,19 +61,7 @@
       "value": ""
     },
     {
-      "key": "superAdminEmail",
-      "value": "superadmin@gmail.com"
-    },
-    {
-      "key": "superAdminPassword",
-      "value": ""
-    },
-    {
       "key": "customerToken",
-      "value": ""
-    },
-    {
-      "key": "managerToken",
       "value": ""
     },
     {
@@ -90,10 +70,6 @@
     },
     {
       "key": "adminToken",
-      "value": ""
-    },
-    {
-      "key": "superAdminToken",
       "value": ""
     },
     {
@@ -207,55 +183,6 @@
           ]
         },
         {
-          "name": "Login as Manager",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
-            },
-            "auth": {
-              "type": "noauth"
-            },
-            "description": "**Access:** Public (no login)\n\nLogs in and stores the token in `managerToken`. Every request of the matching role uses this token automatically.\n\nSet `managerEmail` and `managerPassword` in the collection **Variables** tab first.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{managerEmail}}\",\n  \"password\": \"{{managerPassword}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const body = pm.response.json();",
-                  "if (body.success && body.data && body.data.accessToken) {",
-                  "  pm.collectionVariables.set('managerToken', body.data.accessToken);",
-                  "  if (body.data.refreshToken) pm.collectionVariables.set('refreshToken', body.data.refreshToken);",
-                  "  pm.test('Logged in, token saved to managerToken', () => pm.expect(body.data.accessToken).to.be.a('string'));",
-                  "} else {",
-                  "  pm.test('Login succeeded', () => pm.expect.fail(body.message || 'login failed'));",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "Login as Technician",
           "request": {
             "method": "POST",
@@ -352,58 +279,9 @@
               }
             }
           ]
-        },
-        {
-          "name": "Login as Super Admin",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
-            },
-            "auth": {
-              "type": "noauth"
-            },
-            "description": "**Access:** Public (no login)\n\nLogs in and stores the token in `superAdminToken`. Every request of the matching role uses this token automatically.\n\nSet `superAdminEmail` and `superAdminPassword` in the collection **Variables** tab first.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{superAdminEmail}}\",\n  \"password\": \"{{superAdminPassword}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const body = pm.response.json();",
-                  "if (body.success && body.data && body.data.accessToken) {",
-                  "  pm.collectionVariables.set('superAdminToken', body.data.accessToken);",
-                  "  if (body.data.refreshToken) pm.collectionVariables.set('refreshToken', body.data.refreshToken);",
-                  "  pm.test('Logged in, token saved to superAdminToken', () => pm.expect(body.data.accessToken).to.be.a('string'));",
-                  "} else {",
-                  "  pm.test('Login succeeded', () => pm.expect.fail(body.message || 'login failed'));",
-                  "}"
-                ]
-              }
-            }
-          ]
         }
       ],
-      "description": "Log in once per role. Tokens are kept in separate variables, so you can jump between customer, manager and technician requests without logging in again."
+      "description": "Log in once per role. Tokens are kept in separate variables, so you can jump between customer, admin and technician requests without logging in again."
     },
     {
       "name": "1. Auth",
@@ -741,12 +619,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only. Saves the new id to `skillId`.",
+            "description": "**Access:** ADMIN\n\nManagement only. Saves the new id to `skillId`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"AC Repair\",\n  \"category\": \"HVAC\",\n  \"description\": \"Split and window AC servicing\"\n}",
@@ -798,12 +676,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nProvide at least one field.",
+            "description": "**Access:** ADMIN\n\nProvide at least one field.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"description\": \"Updated description\"\n}",
@@ -831,12 +709,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": []
         }
@@ -898,7 +776,7 @@
             "auth": {
               "type": "noauth"
             },
-            "description": "**Access:** Public (no login)\n\nVerify the OTP. The application then waits for manager review.",
+            "description": "**Access:** Public (no login)\n\nVerify the OTP. The application then waits for admin review.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"tech@example.com\",\n  \"otp\": \"123456\"\n}",
@@ -1162,12 +1040,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only. Saves the first technician id to `technicianId`."
+            "description": "**Access:** ADMIN\n\nManagement only. Saves the first technician id to `technicianId`."
           },
           "response": [],
           "event": [
@@ -1205,12 +1083,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": []
         },
@@ -1234,12 +1112,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nApproves the technician application.",
+            "description": "**Access:** ADMIN\n\nApproves the technician application.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"verificationStatus\": \"APPROVED\"\n}",
@@ -1272,12 +1150,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nRejecting needs a reason of at least 5 characters.",
+            "description": "**Access:** ADMIN\n\nRejecting needs a reason of at least 5 characters.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"verificationStatus\": \"REJECTED\",\n  \"rejectionReason\": \"Documents are not readable\"\n}",
@@ -1524,12 +1402,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": [],
           "event": [
@@ -1571,12 +1449,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nPENDING → UNDER_REVIEW."
+            "description": "**Access:** ADMIN\n\nPENDING → UNDER_REVIEW."
           },
           "response": []
         },
@@ -1600,12 +1478,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nApproves the request so it can be assigned.",
+            "description": "**Access:** ADMIN\n\nApproves the request so it can be assigned.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"APPROVED\"\n}",
@@ -1638,12 +1516,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\n`rejectionReason` is required when rejecting.",
+            "description": "**Access:** ADMIN\n\n`rejectionReason` is required when rejecting.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"REJECTED\",\n  \"rejectionReason\": \"Outside our service area\"\n}",
@@ -1717,12 +1595,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nApproved, available technicians with no conflicting visit in the window. `slotStart`/`slotEnd` are generated (tomorrow, 2 hours). Saves the first to `technicianId`."
+            "description": "**Access:** ADMIN\n\nApproved, available technicians with no conflicting visit in the window. `slotStart`/`slotEnd` are generated (tomorrow, 2 hours). Saves the first to `technicianId`."
           },
           "response": [],
           "event": [
@@ -1778,12 +1656,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nThe service request must be `APPROVED`. Returns 409 if the technician already has a visit in the window. Saves the id to `assignmentId`.",
+            "description": "**Access:** ADMIN\n\nThe service request must be `APPROVED`. Returns 409 if the technician already has a visit in the window. Saves the id to `assignmentId`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"serviceRequestId\": \"{{serviceRequestId}}\",\n  \"technicianId\": \"{{technicianId}}\",\n  \"scheduledStart\": \"{{slotStart}}\",\n  \"scheduledEnd\": \"{{slotEnd}}\",\n  \"notes\": \"Bring a ladder\"\n}",
@@ -1892,12 +1770,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": [],
           "event": [
@@ -2050,12 +1928,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nTechnician or management. Reason needs 3+ characters.",
+            "description": "**Access:** ADMIN\n\nTechnician or management. Reason needs 3+ characters.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"reason\": \"Technician is unwell\"\n}",
@@ -2088,12 +1966,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nCancels the old assignment and creates a new one. `technicianId` is optional (to switch technician).",
+            "description": "**Access:** ADMIN\n\nCancels the old assignment and creates a new one. `technicianId` is optional (to switch technician).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"scheduledStart\": \"{{slotStart}}\",\n  \"scheduledEnd\": \"{{slotEnd}}\",\n  \"reason\": \"Customer asked for another time\"\n}",
@@ -2184,12 +2062,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nCustomer, technician or management. Saves the first id to `workOrderId`."
+            "description": "**Access:** ADMIN\n\nCustomer, technician or management. Saves the first id to `workOrderId`."
           },
           "response": [],
           "event": [
@@ -2274,12 +2152,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": [],
           "event": [
@@ -2670,12 +2548,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nCOMPLETED → VERIFIED. Required before an invoice can be created."
+            "description": "**Access:** ADMIN\n\nCOMPLETED → VERIFIED. Required before an invoice can be created."
           },
           "response": []
         }
@@ -2704,12 +2582,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nWork order must be `VERIFIED` and have labor hours. Total = parts + laborHours × rate − discount + tax. Saves the id to `paymentId`.",
+            "description": "**Access:** ADMIN\n\nWork order must be `VERIFIED` and have labor hours. Total = parts + laborHours × rate − discount + tax. Saves the id to `paymentId`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"discount\": 0,\n  \"taxPercent\": 0,\n  \"dueDate\": \"2026-10-20\",\n  \"notes\": \"Thank you for your business\"\n}",
@@ -2794,12 +2672,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": [],
           "event": [
@@ -2981,44 +2859,6 @@
           "response": []
         },
         {
-          "name": "Mark paid in cash",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/payment/invoices/{{paymentId}}/cash",
-              "host": ["{{baseUrl}}"],
-              "path": ["payment", "invoices", "{{paymentId}}", "cash"]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{managerToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "**Access:** MANAGER\n\nRecords a cash payment; the service request becomes COMPLETED.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"notes\": \"Received in cash at site\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
           "name": "Refund invoice",
           "request": {
             "method": "PATCH",
@@ -3038,12 +2878,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nFull refund of a PAID invoice (calls bKash for bKash payments).",
+            "description": "**Access:** ADMIN\n\nFull refund of a PAID invoice (calls bKash for bKash payments).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"reason\": \"Service was not satisfactory\"\n}",
@@ -3200,12 +3040,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": []
         },
@@ -3280,12 +3120,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": [],
           "event": [
@@ -3592,12 +3432,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": []
         },
@@ -3639,12 +3479,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": []
         },
@@ -3711,12 +3551,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{managerToken}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "**Access:** MANAGER\n\nManagement only."
+            "description": "**Access:** ADMIN\n\nManagement only."
           },
           "response": []
         }

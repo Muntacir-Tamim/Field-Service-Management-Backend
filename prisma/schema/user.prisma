@@ -6,7 +6,7 @@ model User {
   googleId           String?      @unique
   authProvider       AuthProvider @default(CREDENTIAL)
   emailVerified      Boolean      @default(false)
-  role               Role         @default(ADMIN)
+  role               Role         @default(CUSTOMER)
   status             UserStatus   @default(ACTIVE)
   needPasswordChange Boolean      @default(false)
   imageUrl           String       @default("")
