@@ -14,7 +14,7 @@ import type {
   INotifyPayload,
 } from "./notification.interface";
 
-const MANAGEMENT_ROLES = ["MANAGER"] as const;
+const MANAGEMENT_ROLES = ["ADMIN"] as const;
 
 const sendNotificationEmail = async (
   to: string,

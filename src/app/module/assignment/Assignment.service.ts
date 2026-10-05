@@ -364,7 +364,7 @@ const confirmAssignment = async (assignmentId: string, user: IRequestUser) => {
   if (assignment.scheduledEnd <= new Date()) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "This visit time has already passed. Ask the manager to reschedule.",
+      "This visit time has already passed. Ask the admin to reschedule.",
     );
   }
 
@@ -537,7 +537,7 @@ const rescheduleAssignment = async (
         data: {
           status: "CANCELLED",
           cancelledAt: new Date(),
-          cancelReason: payload.reason ?? "Rescheduled by manager",
+          cancelReason: payload.reason ?? "Rescheduled by admin",
           cancelledBy: user.userId,
         },
       });
@@ -577,7 +577,7 @@ const rescheduleAssignment = async (
           action: "ASSIGNMENT_RESCHEDULED",
           entityType: "Assignment",
           entityId: assignmentId,
-          description: "Assignment rescheduled by manager",
+          description: "Assignment rescheduled by admin",
           actor: user,
           oldValue: {
             technicianId: current.technicianId,

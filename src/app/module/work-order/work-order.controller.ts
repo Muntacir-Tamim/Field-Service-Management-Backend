@@ -56,7 +56,7 @@ const completeWork = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: "Work completed. Waiting for manager verification.",
+    message: "Work completed. Waiting for admin verification.",
     data: result,
   });
 });

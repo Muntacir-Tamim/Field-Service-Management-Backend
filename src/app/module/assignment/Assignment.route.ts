@@ -11,7 +11,7 @@ import {
 
 const router = Router();
 
-const MANAGEMENT = [Role.MANAGER] as const;
+const MANAGEMENT = [Role.ADMIN] as const;
 router.get(
   "/my-assignments",
   auth(Role.TECHNICIAN),

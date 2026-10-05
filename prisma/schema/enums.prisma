@@ -1,7 +1,7 @@
 enum Role {
-  MANAGER    
-  TECHNICIAN 
   CUSTOMER   
+  TECHNICIAN 
+  ADMIN 
 }
 
 enum UserStatus {
@@ -124,5 +124,5 @@ enum AuditAction {
   SKILL_UPDATED
   SKILL_DELETED
   FEEDBACK_DELETED
-  MANAGER_CREATED
+  ADMIN_CREATED
 }

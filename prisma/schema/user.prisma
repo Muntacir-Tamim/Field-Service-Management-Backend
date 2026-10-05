@@ -6,7 +6,7 @@ model User {
   googleId           String?      @unique
   authProvider       AuthProvider @default(CREDENTIAL)
   emailVerified      Boolean      @default(false)
-  role               Role         @default(CUSTOMER)
+  role               Role         @default(ADMIN)
   status             UserStatus   @default(ACTIVE)
   needPasswordChange Boolean      @default(false)
   imageUrl           String       @default("")
@@ -20,7 +20,7 @@ model User {
 
   customer   Customer?
   technician Technician?
-  manager    Manager?
+  admin Admin?
 
   @@map("users")
 }

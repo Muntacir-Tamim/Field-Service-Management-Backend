@@ -17,7 +17,7 @@ import {
 
 const router = Router();
 
-const MANAGEMENT = [Role.MANAGER] as const;
+const MANAGEMENT = [Role.ADMIN] as const;
 
 const ALLOWED_MIME = [
   "application/pdf",

@@ -5,7 +5,7 @@ import { AuditLogController } from "./audio-log.controller";
 
 const router = Router();
 
-const MANAGEMENT = [Role.MANAGER] as const;
+const MANAGEMENT = [Role.ADMIN] as const;
 
 router.get("/", auth(...MANAGEMENT), AuditLogController.getAllAuditLogs);
 

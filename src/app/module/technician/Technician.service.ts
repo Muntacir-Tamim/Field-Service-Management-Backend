@@ -367,7 +367,6 @@ const reviewTechnician = async (
 
   const isApproved = payload.verificationStatus === "APPROVED";
 
-  // status in the where => two managers reviewing at once can't both win
   const updated = await prisma.technician.updateMany({
     where: {
       id: technicianId,

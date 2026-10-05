@@ -19,8 +19,8 @@ model ServiceRequest {
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  managerId String?
-  manager   Manager? @relation(fields: [managerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  adminId String?
+  admin Admin? @relation(fields: [adminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   attachments ServiceRequestAttachment[]
 

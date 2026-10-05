@@ -11,7 +11,7 @@ import type {
   IUpdateFeedbackPayload,
 } from "./feedback.interface";
 
-const MANAGEMENT_ROLES = ["MANAGER"];
+const MANAGEMENT_ROLES = ["ADMIN"];
 const SORTABLE_FIELDS = ["createdAt", "rating"];
 
 const feedbackInclude = {

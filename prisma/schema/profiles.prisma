@@ -82,7 +82,7 @@ model TechnicianSkill {
   @@map("technician_skills")
 }
 
-model Manager {
+model Admin {
   id            String    @id @default(uuid())
   name          String
   email         String       @unique
@@ -98,5 +98,5 @@ model Manager {
 
   reviewedRequests ServiceRequest[] // Step 3
 
-  @@map("managers")
+  @@map("admins")
 }

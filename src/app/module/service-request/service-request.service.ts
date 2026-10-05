@@ -109,12 +109,12 @@ const reviewServiceRequest = async (
   payload: IReviewServiceRequestPayload,
   user: IRequestUser,
 ) => {
-  const manager = await prisma.manager.findUnique({
+  const admin = await prisma.admin.findUnique({
     where: { userId: user.userId },
   });
 
-  if (!manager) {
-    throw new AppError(httpStatus.NOT_FOUND, "Manager Profile Not Found");
+  if (!admin) {
+    throw new AppError(httpStatus.NOT_FOUND, "Admin Profile Not Found");
   }
 
   const serviceRequest = await prisma.serviceRequest.findUnique({
@@ -143,7 +143,7 @@ const reviewServiceRequest = async (
         rejectionReason:
           payload.status === "REJECTED" ? payload.rejectionReason : null,
         reviewedAt: new Date(),
-        managerId: manager.id,
+        adminId: admin.id,
       },
       include: {
         customer: {
@@ -152,7 +152,7 @@ const reviewServiceRequest = async (
             user: { select: { name: true, email: true } },
           },
         },
-        manager: {
+        admin: {
           select: {
             id: true,
             user: { select: { name: true, email: true } },
@@ -229,7 +229,7 @@ const cancelServiceRequest = async (
   if (serviceRequest.status === "APPROVED") {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "Cannot cancel an approved request. Please contact your manager.",
+      "Cannot cancel an approved request. Please contact your admin.",
     );
   }
 
@@ -373,7 +373,7 @@ const getAllServiceRequests = async (query: IServiceRequestQuery) => {
           user: { select: { name: true, email: true } },
         },
       },
-      manager: {
+      admin: {
         select: {
           id: true,
           user: { select: { name: true } },
@@ -419,7 +419,7 @@ const getSingleServiceRequest = async (
           user: { select: { name: true, email: true, imageUrl: true } },
         },
       },
-      manager: {
+      admin: {
         select: {
           id: true,
           userId: true,
@@ -484,12 +484,12 @@ const markUnderReview = async (
   serviceRequestId: string,
   user: IRequestUser,
 ) => {
-  const manager = await prisma.manager.findUnique({
+  const admin = await prisma.admin.findUnique({
     where: { userId: user.userId },
   });
 
-  if (!manager) {
-    throw new AppError(httpStatus.NOT_FOUND, "Manager Profile Not Found");
+  if (!admin) {
+    throw new AppError(httpStatus.NOT_FOUND, "admin Profile Not Found");
   }
 
   const serviceRequest = await prisma.serviceRequest.findUnique({
@@ -512,7 +512,7 @@ const markUnderReview = async (
       where: { id: serviceRequestId },
       data: {
         status: "UNDER_REVIEW",
-        managerId: manager.id,
+        adminId: admin.id,
       },
     });
 

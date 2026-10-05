@@ -115,7 +115,7 @@ const serviceRequestReviewed = safe(
         userId: sr.customer.userId,
         type: "SERVICE_REQUEST_UNDER_REVIEW",
         title: "Your request is under review",
-        message: `A manager has started reviewing "${sr.title}".`,
+        message: `A admin has started reviewing "${sr.title}".`,
       });
     } else if (sr.status === "APPROVED") {
       await notify({
@@ -400,7 +400,7 @@ const workOrderStatusChanged = safe(
           userId: technician.userId,
           type: "WORK_VERIFIED",
           title: "Your work was verified",
-          message: `The manager verified your work on "${serviceRequest.title}".`,
+          message: `The admin verified your work on "${serviceRequest.title}".`,
         });
         break;
 

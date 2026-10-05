@@ -12,7 +12,6 @@ import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
 import type { IAnalyticsQuery } from "./analytics.interface";
 
-// "Completed job" = work order the technician finished (COMPLETED) or the manager verified (VERIFIED)
 const DONE_WORK_ORDER_STATUSES: WorkOrderStatus[] = ["COMPLETED", "VERIFIED"];
 const ACTIVE_ASSIGNMENT_STATUSES: AssignmentStatus[] = ["PENDING", "CONFIRMED"];
 const LEADERBOARD_SORT_FIELDS = [
@@ -407,7 +406,7 @@ const getDashboardStats = async (query: IAnalyticsQuery) => {
       _avg: { rating: true },
       _count: { _all: true },
     }),
-    // approved requests that still have no active assignment (manager must act)
+
     prisma.serviceRequest.count({
       where: {
         isDeleted: false,
@@ -472,7 +471,7 @@ const getDashboardStats = async (query: IAnalyticsQuery) => {
       averageRating:
         feedback._avg.rating === null ? null : round2(feedback._avg.rating),
     },
-    // quick "what needs my attention" numbers for the manager
+
     needsAttention: {
       pendingServiceRequests: serviceRequests.PENDING,
       underReviewServiceRequests: serviceRequests.UNDER_REVIEW,

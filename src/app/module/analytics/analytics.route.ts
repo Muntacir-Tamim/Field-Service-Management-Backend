@@ -5,7 +5,7 @@ import { AnalyticsController } from "./analytics.controller";
 
 const router = Router();
 
-const MANAGEMENT = [Role.MANAGER] as const;
+const MANAGEMENT = [Role.ADMIN] as const;
 
 router.get(
   "/dashboard",
