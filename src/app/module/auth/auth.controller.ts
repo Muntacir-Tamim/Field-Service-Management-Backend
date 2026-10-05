@@ -126,6 +126,36 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const logout = catchAsync(async (req: Request, res: Response) => {
+  // Cookie ba Bearer header theke access token, cookie ba body theke refresh token
+  const accessToken: string | undefined =
+    req.cookies.accessToken ??
+    (req.headers.authorization?.startsWith("Bearer ")
+      ? req.headers.authorization.split(" ")[1]
+      : undefined);
+
+  const refreshToken: string | undefined =
+    req.cookies.refreshToken ?? req.body?.refreshToken;
+
+  await AuthService.logout({ accessToken, refreshToken });
+
+  // Login e jei option diye cookie set hoyeche, same option diye clear korte hobe
+  const cookieOptions = {
+    httpOnly: true,
+    secure: false,
+    sameSite: "none" as const,
+  };
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "User logged out successfully",
+    data: null,
+  });
+});
+
 const googleLogin = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
 
@@ -191,4 +221,5 @@ export const AuthController = {
   googleLogin,
   forgotPassword,
   resetPassword,
+  logout,
 };
