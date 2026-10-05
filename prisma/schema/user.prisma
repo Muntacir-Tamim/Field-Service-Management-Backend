@@ -22,5 +22,7 @@ model User {
   technician Technician?
   admin Admin?
 
+   @@index([role, status], name: "idx_user_role_status")
+
   @@map("users")
 }
