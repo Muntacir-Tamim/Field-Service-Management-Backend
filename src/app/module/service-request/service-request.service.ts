@@ -4,6 +4,7 @@ import { cloudinary } from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
+import { AuditLogServices } from "../audit-log/audit-log.service";
 import { NotificationEvents } from "../notification/notification.events";
 import type {
   ICreateServiceRequestPayload,
@@ -68,6 +69,22 @@ const createServiceRequest = async (
       }
     }
 
+    await AuditLogServices.record(
+      {
+        action: "SERVICE_REQUEST_CREATED",
+        entityType: "ServiceRequest",
+        entityId: serviceRequest.id,
+        description: `Service request "${serviceRequest.title}" created`,
+        actor: user,
+        newValue: {
+          status: serviceRequest.status,
+          priority: serviceRequest.priority,
+          city: serviceRequest.city,
+        },
+      },
+      tx,
+    );
+
     return await tx.serviceRequest.findUnique({
       where: { id: serviceRequest.id },
       include: {
@@ -118,29 +135,52 @@ const reviewServiceRequest = async (
     );
   }
 
-  const updatedRequest = await prisma.serviceRequest.update({
-    where: { id: serviceRequestId },
-    data: {
-      status: payload.status,
-      rejectionReason:
-        payload.status === "REJECTED" ? payload.rejectionReason : null,
-      reviewedAt: new Date(),
-      managerId: manager.id,
-    },
-    include: {
-      customer: {
-        select: {
-          id: true,
-          user: { select: { name: true, email: true } },
+  const updatedRequest = await prisma.$transaction(async (tx) => {
+    const updated = await tx.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: {
+        status: payload.status,
+        rejectionReason:
+          payload.status === "REJECTED" ? payload.rejectionReason : null,
+        reviewedAt: new Date(),
+        managerId: manager.id,
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        manager: {
+          select: {
+            id: true,
+            user: { select: { name: true, email: true } },
+          },
         },
       },
-      manager: {
-        select: {
-          id: true,
-          user: { select: { name: true, email: true } },
+    });
+
+    await AuditLogServices.record(
+      {
+        action: "SERVICE_REQUEST_STATUS_CHANGED",
+        entityType: "ServiceRequest",
+        entityId: serviceRequestId,
+        description: `Service request status changed from ${serviceRequest.status} to ${payload.status}`,
+        actor: user,
+        oldValue: { status: serviceRequest.status },
+        newValue: {
+          status: payload.status,
+          rejectionReason:
+            payload.status === "REJECTED"
+              ? (payload.rejectionReason ?? null)
+              : null,
         },
       },
-    },
+      tx,
+    );
+
+    return updated;
   });
 
   void NotificationEvents.serviceRequestReviewed(serviceRequestId);
@@ -193,9 +233,26 @@ const cancelServiceRequest = async (
     );
   }
 
-  const updatedRequest = await prisma.serviceRequest.update({
-    where: { id: serviceRequestId },
-    data: { status: "CANCELLED" },
+  const updatedRequest = await prisma.$transaction(async (tx) => {
+    const updated = await tx.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: { status: "CANCELLED" },
+    });
+
+    await AuditLogServices.record(
+      {
+        action: "SERVICE_REQUEST_STATUS_CHANGED",
+        entityType: "ServiceRequest",
+        entityId: serviceRequestId,
+        description: `Service request cancelled by customer (was ${serviceRequest.status})`,
+        actor: user,
+        oldValue: { status: serviceRequest.status },
+        newValue: { status: "CANCELLED" },
+      },
+      tx,
+    );
+
+    return updated;
   });
   void NotificationEvents.serviceRequestCancelled(serviceRequestId);
 
@@ -450,12 +507,30 @@ const markUnderReview = async (
     );
   }
 
-  const updatedRequest = await prisma.serviceRequest.update({
-    where: { id: serviceRequestId },
-    data: {
-      status: "UNDER_REVIEW",
-      managerId: manager.id,
-    },
+  const updatedRequest = await prisma.$transaction(async (tx) => {
+    const updated = await tx.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: {
+        status: "UNDER_REVIEW",
+        managerId: manager.id,
+      },
+    });
+
+    await AuditLogServices.record(
+      {
+        action: "SERVICE_REQUEST_STATUS_CHANGED",
+        entityType: "ServiceRequest",
+        entityId: serviceRequestId,
+        description:
+          "Service request status changed from PENDING to UNDER_REVIEW",
+        actor: user,
+        oldValue: { status: "PENDING" },
+        newValue: { status: "UNDER_REVIEW" },
+      },
+      tx,
+    );
+
+    return updated;
   });
 
   void NotificationEvents.serviceRequestReviewed(serviceRequestId);

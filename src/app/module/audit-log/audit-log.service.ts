@@ -3,7 +3,7 @@ import type { Prisma } from "../../../generated/prisma/client";
 import { AuditAction, Role } from "../../../generated/prisma/enums";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
-import type { IAuditLogInput, IAuditLogQuery } from "./audit-log.interface";
+import { IAuditLogInput, IAuditLogQuery } from "./audit-log.interface";
 
 const SORTABLE_FIELDS = ["createdAt", "action", "entityType"];
 
@@ -13,14 +13,6 @@ const auditLogInclude = {
   },
 } satisfies Prisma.AuditLogInclude;
 
-/**
- * Write one audit log row.
- *
- * - With `tx`   : runs inside the caller's transaction. The log and the
- *                 change are saved together (or rolled back together).
- * - Without `tx`: best effort. A logging failure is printed but never
- *                 breaks the real request.
- */
 const record = async (input: IAuditLogInput, tx?: Prisma.TransactionClient) => {
   const data: Prisma.AuditLogUncheckedCreateInput = {
     action: input.action,
@@ -136,4 +128,3 @@ export const AuditLogServices = {
   getAllAuditLogs,
   getSingleAuditLog,
 };
-s;

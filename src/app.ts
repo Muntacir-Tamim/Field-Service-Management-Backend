@@ -25,6 +25,7 @@ import { NotificationRoutes } from "./app/module/notification/notification.route
 import { AnalyticsRoutes } from "./app/module/analytics/analytics.route";
 import helmet from "helmet";
 import { authLimiter, globalLimiter } from "./app/middleware/rateLimiter";
+import { AuditLogRoutes } from "./app/module/audit-log/audit-log.route";
 
 const app: Application = express();
 
@@ -59,6 +60,7 @@ app.use("/api/v1/work-orders", WorkOrderRoutes);
 app.use("/api/v1/feedbacks", FeedbackRoutes);
 app.use("/api/v1/notifications", NotificationRoutes);
 app.use("/api/v1/analytics", AnalyticsRoutes);
+app.use("/api/v1/admin/audit-logs", AuditLogRoutes);
 
 app.get("/", async (req: Request, res: Response) => {
   res.status(httpStatus.OK).json({

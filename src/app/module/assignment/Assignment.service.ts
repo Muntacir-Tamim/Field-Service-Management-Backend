@@ -3,6 +3,7 @@ import { Prisma } from "../../../generated/prisma/client";
 import type { AssignmentStatus } from "../../../generated/prisma/enums";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
+import { AuditLogServices } from "../audit-log/audit-log.service";
 import { NotificationEvents } from "../notification/notification.events";
 import {
   IAssignmentQuery,
@@ -262,7 +263,7 @@ const getAvailableTechnicians = async (query: IAvailableTechnicianQuery) => {
 
 const createAssignment = async (
   payload: ICreateAssignmentPayload,
-  _user: IRequestUser,
+  user: IRequestUser,
 ) => {
   const { serviceRequestId, technicianId, scheduledStart, scheduledEnd } =
     payload;
@@ -299,7 +300,7 @@ const createAssignment = async (
       await ensureTechnicianEligible(tx, technicianId);
       await ensureNoConflict(tx, technicianId, scheduledStart, scheduledEnd);
 
-      return tx.assignment.create({
+      const assignment = await tx.assignment.create({
         data: {
           serviceRequestId,
           technicianId,
@@ -310,6 +311,26 @@ const createAssignment = async (
         },
         include: assignmentInclude,
       });
+
+      await AuditLogServices.record(
+        {
+          action: "ASSIGNMENT_CREATED",
+          entityType: "Assignment",
+          entityId: assignment.id,
+          description: "Technician assigned to service request",
+          actor: user,
+          newValue: {
+            status: "PENDING",
+            technicianId,
+            serviceRequestId,
+            scheduledStart: scheduledStart.toISOString(),
+            scheduledEnd: scheduledEnd.toISOString(),
+          },
+        },
+        tx,
+      );
+
+      return assignment;
     }),
   );
 
@@ -360,9 +381,23 @@ const confirmAssignment = async (assignmentId: string, user: IRequestUser) => {
       );
     }
 
-    await tx.workOrder.create({
+    const workOrder = await tx.workOrder.create({
       data: { assignmentId, status: "SCHEDULED" },
     });
+
+    await AuditLogServices.record(
+      {
+        action: "ASSIGNMENT_CONFIRMED",
+        entityType: "Assignment",
+        entityId: assignmentId,
+        description: "Technician confirmed the assignment",
+        actor: user,
+        oldValue: { status: "PENDING" },
+        newValue: { status: "CONFIRMED" },
+        metadata: { workOrderId: workOrder.id },
+      },
+      tx,
+    );
 
     return tx.assignment.findUniqueOrThrow({
       where: { id: assignmentId },
@@ -437,6 +472,22 @@ const cancelAssignment = async (
       });
     }
 
+    await AuditLogServices.record(
+      {
+        action: "ASSIGNMENT_CANCELLED",
+        entityType: "Assignment",
+        entityId: assignmentId,
+        description: `Assignment cancelled by ${user.role.toLowerCase()}`,
+        actor: user,
+        oldValue: { status: assignment.status },
+        newValue: { status: "CANCELLED", reason: payload.reason },
+        metadata: assignment.workOrder
+          ? { workOrderId: assignment.workOrder.id }
+          : undefined,
+      },
+      tx,
+    );
+
     return tx.assignment.findUniqueOrThrow({
       where: { id: assignmentId },
       include: assignmentInclude,
@@ -509,7 +560,7 @@ const rescheduleAssignment = async (
       await ensureNoConflict(tx, newTechnicianId, scheduledStart, scheduledEnd);
 
       // 3) create the new assignment
-      return tx.assignment.create({
+      const next = await tx.assignment.create({
         data: {
           serviceRequestId: current.serviceRequestId,
           technicianId: newTechnicianId,
@@ -520,6 +571,33 @@ const rescheduleAssignment = async (
         },
         include: assignmentInclude,
       });
+
+      await AuditLogServices.record(
+        {
+          action: "ASSIGNMENT_RESCHEDULED",
+          entityType: "Assignment",
+          entityId: assignmentId,
+          description: "Assignment rescheduled by manager",
+          actor: user,
+          oldValue: {
+            technicianId: current.technicianId,
+            scheduledStart: current.scheduledStart.toISOString(),
+            scheduledEnd: current.scheduledEnd.toISOString(),
+          },
+          newValue: {
+            technicianId: newTechnicianId,
+            scheduledStart: scheduledStart.toISOString(),
+            scheduledEnd: scheduledEnd.toISOString(),
+          },
+          metadata: {
+            newAssignmentId: next.id,
+            reason: payload.reason ?? null,
+          },
+        },
+        tx,
+      );
+
+      return next;
     }),
   );
 

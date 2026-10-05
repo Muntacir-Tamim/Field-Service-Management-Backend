@@ -8,6 +8,7 @@ import { getBkashIdToken } from "../../lib/bkash";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
+import { AuditLogServices } from "../audit-log/audit-log.service";
 import { NotificationEvents } from "../notification/notification.events";
 import type {
   ICreateInvoicePayload,
@@ -191,7 +192,10 @@ const callBkash = async (path: string, body: Record<string, unknown>) => {
   return (await response.json()) as Record<string, any>;
 };
 
-const createInvoice = async (payload: ICreateInvoicePayload) => {
+const createInvoice = async (
+  payload: ICreateInvoicePayload,
+  user: IRequestUser,
+) => {
   const workOrder = await prisma.workOrder.findUnique({
     where: { id: payload.workOrderId },
     include: { parts: true, payment: { select: { id: true } } },
@@ -247,21 +251,45 @@ const createInvoice = async (payload: ICreateInvoicePayload) => {
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const created = await prisma.payment.create({
-        data: {
-          workOrderId: workOrder.id,
-          invoiceNumber: generateInvoiceNumber(),
-          status: "UNPAID",
-          currency: "BDT",
-          subtotal,
-          discount,
-          taxAmount,
-          totalAmount,
-          dueDate: payload.dueDate,
-          notes: payload.notes,
-          sentAt: new Date(),
-        },
-        include: paymentInclude,
+      const created = await prisma.$transaction(async (tx) => {
+        const invoice = await tx.payment.create({
+          data: {
+            workOrderId: workOrder.id,
+            invoiceNumber: generateInvoiceNumber(),
+            status: "UNPAID",
+            currency: "BDT",
+            subtotal,
+            discount,
+            taxAmount,
+            totalAmount,
+            dueDate: payload.dueDate,
+            notes: payload.notes,
+            sentAt: new Date(),
+          },
+          include: paymentInclude,
+        });
+
+        await AuditLogServices.record(
+          {
+            action: "INVOICE_CREATED",
+            entityType: "Payment",
+            entityId: invoice.id,
+            description: `Invoice ${invoice.invoiceNumber} created`,
+            actor: user,
+            newValue: {
+              status: "UNPAID",
+              invoiceNumber: invoice.invoiceNumber,
+              subtotal: subtotal.toFixed(2),
+              discount: discount.toFixed(2),
+              taxAmount: taxAmount.toFixed(2),
+              totalAmount: totalAmount.toFixed(2),
+            },
+            metadata: { workOrderId: workOrder.id },
+          },
+          tx,
+        );
+
+        return invoice;
       });
       void NotificationEvents.invoiceCreated(created.id); // 🔔 NOTIFICATION
       return toInvoiceView(created);
@@ -392,13 +420,32 @@ const initiatePayment = async (
     );
   }
 
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      gatewayPaymentId: result.paymentID,
-      method: "BKASH",
-      payerReference,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        gatewayPaymentId: result.paymentID,
+        method: "BKASH",
+        payerReference,
+      },
+    });
+
+    await AuditLogServices.record(
+      {
+        action: "PAYMENT_INITIATED",
+        entityType: "Payment",
+        entityId: payment.id,
+        description: `bKash payment started for invoice ${payment.invoiceNumber}`,
+        actor: user,
+        oldValue: { status: payment.status },
+        metadata: {
+          method: "BKASH",
+          gatewayPaymentId: result.paymentID,
+          amount: payment.totalAmount.toFixed(2),
+        },
+      },
+      tx,
+    );
   });
 
   return result;
@@ -434,9 +481,31 @@ const paymentCallback = async (query: Record<string, any>) => {
   }
 
   if (status === "cancel" || status === "failure") {
-    await prisma.payment.updateMany({
-      where: { id: payment.id, status: { not: "PAID" } },
-      data: { status: status === "cancel" ? "CANCELLED" : "FAILED" },
+    const newStatus = status === "cancel" ? "CANCELLED" : "FAILED";
+    await prisma.$transaction(async (tx) => {
+      const changed = await tx.payment.updateMany({
+        where: { id: payment.id, status: { not: "PAID" } },
+        data: { status: newStatus },
+      });
+
+      if (changed.count === 1) {
+        await AuditLogServices.record(
+          {
+            action:
+              newStatus === "CANCELLED"
+                ? "PAYMENT_CANCELLED"
+                : "PAYMENT_FAILED",
+            entityType: "Payment",
+            entityId: payment.id,
+            description: `Payment ${newStatus.toLowerCase()} at bKash (invoice ${payment.invoiceNumber})`,
+            actor: null,
+            oldValue: { status: payment.status },
+            newValue: { status: newStatus },
+            metadata: { gatewayPaymentId: paymentID, gatewayStatus: status },
+          },
+          tx,
+        );
+      }
     });
     return { redirectUrl: redirectTo(status) };
   }
@@ -469,12 +538,37 @@ const paymentCallback = async (query: Record<string, any>) => {
         executed,
       });
     }
-    await prisma.payment.updateMany({
-      where: { id: payment.id, status: { not: "PAID" } },
-      data: {
-        status: "FAILED",
-        gatewayResponse: executed as Prisma.InputJsonValue,
-      },
+    await prisma.$transaction(async (tx) => {
+      const changed = await tx.payment.updateMany({
+        where: { id: payment.id, status: { not: "PAID" } },
+        data: {
+          status: "FAILED",
+          gatewayResponse: executed as Prisma.InputJsonValue,
+        },
+      });
+
+      if (changed.count === 1) {
+        await AuditLogServices.record(
+          {
+            action: "PAYMENT_FAILED",
+            entityType: "Payment",
+            entityId: payment.id,
+            description: completed
+              ? `bKash payment verification mismatch (invoice ${payment.invoiceNumber}) - review manually`
+              : `bKash payment was not completed (invoice ${payment.invoiceNumber})`,
+            actor: null,
+            oldValue: { status: payment.status },
+            newValue: { status: "FAILED" },
+            metadata: {
+              gatewayPaymentId: paymentID,
+              statusCode: executed.statusCode ?? null,
+              amountMatches,
+              invoiceMatches,
+            },
+          },
+          tx,
+        );
+      }
     });
     return { redirectUrl: redirectTo("failure") };
   }
@@ -497,6 +591,26 @@ const paymentCallback = async (query: Record<string, any>) => {
         where: { id: payment.workOrder.assignment.serviceRequestId },
         data: { status: "COMPLETED" },
       });
+
+      await AuditLogServices.record(
+        {
+          action: "PAYMENT_PAID",
+          entityType: "Payment",
+          entityId: payment.id,
+          description: `Invoice ${payment.invoiceNumber} paid via bKash`,
+          actor: null, // confirmed by the payment gateway, not by a user
+          oldValue: { status: payment.status },
+          newValue: { status: "PAID" },
+          metadata: {
+            method: "BKASH",
+            transactionId: executed.trxID ?? null,
+            gatewayPaymentId: paymentID,
+            amount: payment.totalAmount.toFixed(2),
+            serviceRequestId: payment.workOrder.assignment.serviceRequestId,
+          },
+        },
+        tx,
+      );
       return true;
     }
     return false;
@@ -507,7 +621,11 @@ const paymentCallback = async (query: Record<string, any>) => {
   return { redirectUrl: redirectTo("success") };
 };
 
-const refundPayment = async (paymentId: string, payload: IRefundPayload) => {
+const refundPayment = async (
+  paymentId: string,
+  payload: IRefundPayload,
+  user: IRequestUser,
+) => {
   const payment = await getPaymentOrThrow(paymentId);
 
   if (payment.status !== "PAID") {
@@ -544,15 +662,39 @@ const refundPayment = async (paymentId: string, payload: IRefundPayload) => {
     refundTransactionId = result.refundTrxId ?? null;
   }
 
-  const updated = await prisma.payment.updateMany({
-    where: { id: paymentId, status: "PAID" },
-    data: {
-      status: "REFUNDED",
-      refundAmount: payment.totalAmount,
-      refundReason: payload.reason,
-      refundTransactionId,
-      refundedAt: new Date(),
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.payment.updateMany({
+      where: { id: paymentId, status: "PAID" },
+      data: {
+        status: "REFUNDED",
+        refundAmount: payment.totalAmount,
+        refundReason: payload.reason,
+        refundTransactionId,
+        refundedAt: new Date(),
+      },
+    });
+
+    if (result.count === 1) {
+      await AuditLogServices.record(
+        {
+          action: "PAYMENT_REFUNDED",
+          entityType: "Payment",
+          entityId: paymentId,
+          description: `Invoice ${payment.invoiceNumber} refunded`,
+          actor: user,
+          oldValue: { status: "PAID" },
+          newValue: {
+            status: "REFUNDED",
+            refundAmount: payment.totalAmount.toFixed(2),
+            reason: payload.reason,
+          },
+          metadata: { refundTransactionId },
+        },
+        tx,
+      );
+    }
+
+    return result;
   });
 
   if (updated.count === 0) {

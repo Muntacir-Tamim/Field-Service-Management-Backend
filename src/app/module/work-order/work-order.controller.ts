@@ -134,6 +134,7 @@ const upsertServiceReport = catchAsync(async (req: Request, res: Response) => {
 const verifyWorkOrder = catchAsync(async (req: Request, res: Response) => {
   const result = await WorkOrderServices.verifyWorkOrder(
     req.params.workOrderId as string,
+    req.user as IRequestUser,
   );
   sendResponse(res, {
     statusCode: httpStatus.OK,

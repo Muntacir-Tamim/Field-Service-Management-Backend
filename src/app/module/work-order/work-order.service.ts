@@ -5,6 +5,7 @@ import { cloudinary } from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
+import { AuditLogServices } from "../audit-log/audit-log.service";
 import { NotificationEvents } from "../notification/notification.events"; // 🔔 NOTIFICATION
 import type {
   IAddPartPayload,
@@ -231,11 +232,12 @@ const changeStatus = async (
   from: WorkOrderStatus,
   to: WorkOrderStatus,
   options: {
+    actor: IRequestUser;
     workOrderData?: Prisma.WorkOrderUpdateManyMutationInput;
     assignmentId?: string;
     assignmentData?: Prisma.AssignmentUpdateInput;
     guard?: (tx: Tx) => Promise<void>;
-  } = {},
+  },
 ) => {
   const result = await prisma.$transaction(async (tx) => {
     if (options.guard) await options.guard(tx);
@@ -259,6 +261,19 @@ const changeStatus = async (
       });
     }
 
+    await AuditLogServices.record(
+      {
+        action: "WORK_ORDER_STATUS_CHANGED",
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        description: `Work order status changed from ${from} to ${to}`,
+        actor: options.actor,
+        oldValue: { status: from },
+        newValue: { status: to },
+      },
+      tx,
+    );
+
     return tx.workOrder.findUniqueOrThrow({
       where: { id: workOrderId },
       include: workOrderDetailInclude,
@@ -274,14 +289,18 @@ const markEnRoute = async (workOrderId: string, user: IRequestUser) => {
   const workOrder = await getOwnedWorkOrderOrThrow(workOrderId, user);
   assertStatus(workOrder.status, "SCHEDULED", "mark as en route");
 
-  return changeStatus(workOrderId, "SCHEDULED", "TECHNICIAN_EN_ROUTE");
+  return changeStatus(workOrderId, "SCHEDULED", "TECHNICIAN_EN_ROUTE", {
+    actor: user,
+  });
 };
 
 const markArrived = async (workOrderId: string, user: IRequestUser) => {
   const workOrder = await getOwnedWorkOrderOrThrow(workOrderId, user);
   assertStatus(workOrder.status, "TECHNICIAN_EN_ROUTE", "mark as arrived");
 
-  return changeStatus(workOrderId, "TECHNICIAN_EN_ROUTE", "ARRIVED");
+  return changeStatus(workOrderId, "TECHNICIAN_EN_ROUTE", "ARRIVED", {
+    actor: user,
+  });
 };
 
 const startWork = async (
@@ -294,6 +313,7 @@ const startWork = async (
 
   const now = new Date();
   return changeStatus(workOrderId, "ARRIVED", "IN_PROGRESS", {
+    actor: user,
     workOrderData: {
       problemFound: payload.problemFound,
       workDescription: payload.workDescription,
@@ -334,6 +354,7 @@ const completeWork = async (
 
     const now = new Date();
     return await changeStatus(workOrderId, "IN_PROGRESS", "COMPLETED", {
+      actor: user,
       workOrderData: {
         laborHours: new Prisma.Decimal(payload.laborHours),
         completionNotes: payload.completionNotes,
@@ -538,7 +559,7 @@ const upsertServiceReport = async (
   });
 };
 
-const verifyWorkOrder = async (workOrderId: string) => {
+const verifyWorkOrder = async (workOrderId: string, user: IRequestUser) => {
   const workOrder = await prisma.workOrder.findUnique({
     where: { id: workOrderId },
     select: { status: true },
@@ -549,6 +570,7 @@ const verifyWorkOrder = async (workOrderId: string) => {
   assertStatus(workOrder.status, "COMPLETED", "verify");
 
   return changeStatus(workOrderId, "COMPLETED", "VERIFIED", {
+    actor: user,
     workOrderData: { verifiedAt: new Date() },
     guard: async (tx) => {
       const report = await tx.serviceReport.findUnique({

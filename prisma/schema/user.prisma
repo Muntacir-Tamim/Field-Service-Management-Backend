@@ -16,7 +16,7 @@ model User {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   notifications Notification[]
-   auditLogs     AuditLog[]
+  auditLogs AuditLog[]
 
   customer   Customer?
   technician Technician?
