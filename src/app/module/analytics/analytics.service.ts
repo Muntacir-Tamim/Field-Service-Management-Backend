@@ -10,6 +10,7 @@ import {
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
+import { cacheGetOrSet } from "../../lib/cache";
 import type { IAnalyticsQuery } from "./analytics.interface";
 
 const DONE_WORK_ORDER_STATUSES: WorkOrderStatus[] = ["COMPLETED", "VERIFIED"];
@@ -100,6 +101,7 @@ const getTechnicianStats = async (technicianId: string, range: DateRange) => {
   };
 
   const feedbackWhere: Prisma.CustomerFeedbackWhereInput = {
+    isDeleted: false,
     serviceRequest: {
       assignments: { some: { technicianId, status: "CONFIRMED" } },
     },
@@ -255,6 +257,7 @@ const getTechnicianLeaderboard = async (query: IAnalyticsQuery) => {
     }),
     prisma.customerFeedback.findMany({
       where: {
+        isDeleted: false,
         serviceRequest: {
           assignments: {
             some: { technicianId: { in: technicianIds }, status: "CONFIRMED" },
@@ -402,7 +405,7 @@ const getDashboardStats = async (query: IAnalyticsQuery) => {
     }),
     prisma.customer.count({ where: { isDeleted: false } }),
     prisma.customerFeedback.aggregate({
-      where: created,
+      where: { isDeleted: false, ...created },
       _avg: { rating: true },
       _count: { _all: true },
     }),
@@ -484,9 +487,15 @@ const getDashboardStats = async (query: IAnalyticsQuery) => {
   };
 };
 
+// Dashboard is expensive (many counts). 60 seconds is fresh enough for an admin.
+const getCachedDashboardStats = (query: IAnalyticsQuery) =>
+  cacheGetOrSet(`analytics:dashboard:${JSON.stringify(query)}`, 60, () =>
+    getDashboardStats(query),
+  );
+
 export const AnalyticsServices = {
   getMyStats,
   getSingleTechnicianStats,
   getTechnicianLeaderboard,
-  getDashboardStats,
+  getDashboardStats: getCachedDashboardStats,
 };

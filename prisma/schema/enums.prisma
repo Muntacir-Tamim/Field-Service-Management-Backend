@@ -55,10 +55,7 @@ enum PaymentStatus {
 }
 
 enum PaymentMethod {
-  BANK_TRANSFER
   BKASH
-  NAGAD
-  CARD
 }
 
 enum Priority {

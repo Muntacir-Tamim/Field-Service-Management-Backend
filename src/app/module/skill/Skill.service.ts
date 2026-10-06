@@ -1,8 +1,12 @@
 import httpStatus from "http-status";
+import { cacheDeleteByPrefix, cacheGetOrSet } from "../../lib/cache";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
 import { AuditLogServices } from "../audit-log/audit-log.service";
+
+const SKILLS_CACHE_PREFIX = "skills:list:";
+const SKILLS_CACHE_TTL = 300; // 5 minutes
 
 interface ISkillPayload {
   name: string;
@@ -11,26 +15,37 @@ interface ISkillPayload {
 }
 
 const createSkill = async (payload: ISkillPayload, user: IRequestUser) => {
+  // name is unique in the DB, so a soft-deleted skill with the same name is brought back
   const exists = await prisma.skill.findUnique({
     where: { name: payload.name },
   });
-  if (exists) {
+
+  if (exists && !exists.isDeleted) {
     throw new AppError(
       httpStatus.CONFLICT,
       "A skill with this name already exists",
     );
   }
 
-  const created = await prisma.skill.create({ data: payload });
+  const created = exists
+    ? await prisma.skill.update({
+        where: { id: exists.id },
+        data: { ...payload, isDeleted: false, deletedAt: null },
+      })
+    : await prisma.skill.create({ data: payload });
 
   void AuditLogServices.record({
     action: "SKILL_CREATED",
     entityType: "Skill",
     entityId: created.id,
-    description: `Skill "${created.name}" created`,
+    description: exists
+      ? `Skill "${created.name}" restored`
+      : `Skill "${created.name}" created`,
     actor: user,
     newValue: { name: created.name, category: created.category },
   });
+
+  await cacheDeleteByPrefix(SKILLS_CACHE_PREFIX);
 
   return created;
 };
@@ -39,17 +54,22 @@ const getAllSkills = async (query: {
   category?: string;
   searchTerm?: string;
 }) => {
-  return prisma.skill.findMany({
-    where: {
-      ...(query.category
-        ? { category: { equals: query.category, mode: "insensitive" } }
-        : {}),
-      ...(query.searchTerm
-        ? { name: { contains: query.searchTerm, mode: "insensitive" } }
-        : {}),
-    },
-    orderBy: [{ category: "asc" }, { name: "asc" }],
-  });
+  const key = `${SKILLS_CACHE_PREFIX}${(query.category ?? "").toLowerCase()}:${(query.searchTerm ?? "").toLowerCase()}`;
+
+  return cacheGetOrSet(key, SKILLS_CACHE_TTL, () =>
+    prisma.skill.findMany({
+      where: {
+        isDeleted: false,
+        ...(query.category
+          ? { category: { equals: query.category, mode: "insensitive" } }
+          : {}),
+        ...(query.searchTerm
+          ? { name: { contains: query.searchTerm, mode: "insensitive" } }
+          : {}),
+      },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+    }),
+  );
 };
 
 const updateSkill = async (
@@ -57,7 +77,9 @@ const updateSkill = async (
   payload: Partial<ISkillPayload>,
   user: IRequestUser,
 ) => {
-  const skill = await prisma.skill.findUnique({ where: { id: skillId } });
+  const skill = await prisma.skill.findFirst({
+    where: { id: skillId, isDeleted: false },
+  });
   if (!skill) throw new AppError(httpStatus.NOT_FOUND, "Skill Not Found");
 
   if (payload.name && payload.name !== skill.name) {
@@ -95,12 +117,15 @@ const updateSkill = async (
     },
   });
 
+  await cacheDeleteByPrefix(SKILLS_CACHE_PREFIX);
+
   return updated;
 };
 
+// Soft delete
 const deleteSkill = async (skillId: string, user: IRequestUser) => {
-  const skill = await prisma.skill.findUnique({
-    where: { id: skillId },
+  const skill = await prisma.skill.findFirst({
+    where: { id: skillId, isDeleted: false },
     include: { _count: { select: { technicians: true } } },
   });
   if (!skill) throw new AppError(httpStatus.NOT_FOUND, "Skill Not Found");
@@ -112,16 +137,22 @@ const deleteSkill = async (skillId: string, user: IRequestUser) => {
     );
   }
 
-  await prisma.skill.delete({ where: { id: skillId } });
+  await prisma.skill.update({
+    where: { id: skillId },
+    data: { isDeleted: true, deletedAt: new Date() },
+  });
 
   void AuditLogServices.record({
     action: "SKILL_DELETED",
     entityType: "Skill",
     entityId: skillId,
-    description: `Skill "${skill.name}" deleted`,
+    description: `Skill "${skill.name}" soft deleted`,
     actor: user,
-    oldValue: { name: skill.name, category: skill.category },
+    oldValue: { name: skill.name, category: skill.category, isDeleted: false },
+    newValue: { isDeleted: true },
   });
+
+  await cacheDeleteByPrefix(SKILLS_CACHE_PREFIX);
 
   return null;
 };

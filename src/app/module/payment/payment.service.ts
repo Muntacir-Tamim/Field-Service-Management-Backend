@@ -635,32 +635,34 @@ const refundPayment = async (
     );
   }
 
-  let refundTransactionId: string | null = null;
-
-  if (payment.method === "BKASH") {
-    if (!payment.gatewayPaymentId || !payment.transactionId) {
-      throw new AppError(
-        httpStatus.BAD_REQUEST,
-        "bKash transaction details are missing, cannot refund",
-      );
-    }
-
-    const result = await callBkash("/tokenized/checkout/payment/refund", {
-      paymentId: payment.gatewayPaymentId,
-      trxId: payment.transactionId,
-      amount: payment.totalAmount.toFixed(2),
-      sku: payment.invoiceNumber,
-      reason: payload.reason,
-    });
-
-    if (result.statusCode !== "0000") {
-      throw new AppError(
-        httpStatus.BAD_GATEWAY,
-        `bKash refund failed: ${result.statusMessage ?? "unknown error"}`,
-      );
-    }
-    refundTransactionId = result.refundTrxId ?? null;
+  // Refunds only go through bKash. No manual / fake refunds.
+  if (
+    payment.method !== "BKASH" ||
+    !payment.gatewayPaymentId ||
+    !payment.transactionId
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "This payment has no bKash transaction, cannot refund",
+    );
   }
+
+  const bkashRefund = await callBkash("/tokenized/checkout/payment/refund", {
+    paymentId: payment.gatewayPaymentId,
+    trxId: payment.transactionId,
+    amount: payment.totalAmount.toFixed(2),
+    sku: payment.invoiceNumber,
+    reason: payload.reason,
+  });
+
+  if (bkashRefund.statusCode !== "0000") {
+    throw new AppError(
+      httpStatus.BAD_GATEWAY,
+      `bKash refund failed: ${bkashRefund.statusMessage ?? "unknown error"}`,
+    );
+  }
+
+  const refundTransactionId: string | null = bkashRefund.refundTrxId ?? null;
 
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.payment.updateMany({

@@ -182,7 +182,7 @@ const applyAsTechnician = async (
 
   const skillIds = payload.skills.map((s) => s.skillId);
   const foundSkills = await prisma.skill.count({
-    where: { id: { in: skillIds } },
+    where: { id: { in: skillIds }, isDeleted: false },
   });
   if (foundSkills !== skillIds.length) {
     throw new AppError(
@@ -533,8 +533,8 @@ const updateMyAvailability = async (
 const addMySkill = async (user: IRequestUser, payload: IAddSkillPayload) => {
   const technician = await getTechnicianOrThrow(user);
 
-  const skill = await prisma.skill.findUnique({
-    where: { id: payload.skillId },
+  const skill = await prisma.skill.findFirst({
+    where: { id: payload.skillId, isDeleted: false },
   });
   if (!skill) throw new AppError(httpStatus.NOT_FOUND, "Skill Not Found");
 

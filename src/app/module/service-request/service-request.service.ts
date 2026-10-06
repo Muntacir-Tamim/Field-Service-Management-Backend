@@ -320,6 +320,10 @@ const getMyServiceRequests = async (
     },
   });
 
+  for (const sr of serviceRequests) {
+    if (sr.feedback?.isDeleted) sr.feedback = null;
+  }
+
   const total = await prisma.serviceRequest.count({
     where: { AND: andConditions },
   });
@@ -447,6 +451,8 @@ const getSingleServiceRequest = async (
   if (!serviceRequest) {
     throw new AppError(httpStatus.NOT_FOUND, "Service Request Not Found");
   }
+
+  if (serviceRequest.feedback?.isDeleted) serviceRequest.feedback = null;
 
   // Customer শুধু নিজেরটা দেখতে পারবে
   if (user.role === "CUSTOMER") {

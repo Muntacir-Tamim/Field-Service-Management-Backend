@@ -58,14 +58,17 @@ model Technician {
 }
 
 model Skill {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String    @id @default(uuid())
+  name        String    @unique
   category    String
   description String?
-  createdAt   DateTime @default(now())
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
 
   technicians TechnicianSkill[]
 
+  @@index([isDeleted], name: "idx_skill_isDeleted")
   @@map("skills")
 }
 

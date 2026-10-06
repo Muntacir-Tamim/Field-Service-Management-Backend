@@ -55,6 +55,7 @@ const getSorting = (query: IFeedbackQuery) => {
 const technicianWhere = (
   technicianId: string,
 ): Prisma.CustomerFeedbackWhereInput => ({
+  isDeleted: false,
   serviceRequest: {
     assignments: { some: { technicianId, status: "CONFIRMED" } },
   },
@@ -65,7 +66,10 @@ const paginateFeedbacks = async (
   query: IFeedbackQuery,
 ) => {
   const { page, limit, skip } = getPagination(query);
-  const conditions = [...baseConditions];
+  const conditions: Prisma.CustomerFeedbackWhereInput[] = [
+    { isDeleted: false },
+    ...baseConditions,
+  ];
 
   const rating = Number(query.rating);
   if (Number.isInteger(rating) && rating >= 1 && rating <= 5) {
@@ -138,10 +142,10 @@ const createFeedback = async (
 
   const existing = await prisma.customerFeedback.findUnique({
     where: { serviceRequestId: serviceRequest.id },
-    select: { id: true },
+    select: { id: true, isDeleted: true },
   });
 
-  if (existing) {
+  if (existing && !existing.isDeleted) {
     throw new AppError(
       httpStatus.CONFLICT,
       "You have already given feedback for this service request",
@@ -149,15 +153,27 @@ const createFeedback = async (
   }
 
   try {
-    const feedback = await prisma.customerFeedback.create({
-      data: {
-        rating: payload.rating,
-        comment: payload.comment ?? null,
-        customerId: customer.id,
-        serviceRequestId: serviceRequest.id,
-      },
-      include: feedbackInclude,
-    });
+    // serviceRequestId is unique, so if the old feedback was soft deleted we reuse that row
+    const feedback = existing
+      ? await prisma.customerFeedback.update({
+          where: { id: existing.id },
+          data: {
+            rating: payload.rating,
+            comment: payload.comment ?? null,
+            isDeleted: false,
+            deletedAt: null,
+          },
+          include: feedbackInclude,
+        })
+      : await prisma.customerFeedback.create({
+          data: {
+            rating: payload.rating,
+            comment: payload.comment ?? null,
+            customerId: customer.id,
+            serviceRequestId: serviceRequest.id,
+          },
+          include: feedbackInclude,
+        });
 
     void NotificationEvents.feedbackReceived(feedback.id);
 
@@ -183,8 +199,8 @@ const updateMyFeedback = async (
 ) => {
   const customer = await getCustomerOrThrow(user.userId);
 
-  const feedback = await prisma.customerFeedback.findUnique({
-    where: { id: feedbackId },
+  const feedback = await prisma.customerFeedback.findFirst({
+    where: { id: feedbackId, isDeleted: false },
     select: { id: true, customerId: true },
   });
 
@@ -210,8 +226,8 @@ const updateMyFeedback = async (
 };
 
 const deleteFeedback = async (feedbackId: string, user: IRequestUser) => {
-  const feedback = await prisma.customerFeedback.findUnique({
-    where: { id: feedbackId },
+  const feedback = await prisma.customerFeedback.findFirst({
+    where: { id: feedbackId, isDeleted: false },
     select: { id: true, customerId: true },
   });
 
@@ -229,7 +245,10 @@ const deleteFeedback = async (feedbackId: string, user: IRequestUser) => {
     }
   }
 
-  await prisma.customerFeedback.delete({ where: { id: feedbackId } });
+  await prisma.customerFeedback.update({
+    where: { id: feedbackId },
+    data: { isDeleted: true, deletedAt: new Date() },
+  });
 
   void AuditLogServices.record({
     action: "FEEDBACK_DELETED",
@@ -295,8 +314,8 @@ const getFeedbackByServiceRequest = async (
     }
   }
 
-  const feedback = await prisma.customerFeedback.findUnique({
-    where: { serviceRequestId },
+  const feedback = await prisma.customerFeedback.findFirst({
+    where: { serviceRequestId, isDeleted: false },
     include: feedbackInclude,
   });
 
