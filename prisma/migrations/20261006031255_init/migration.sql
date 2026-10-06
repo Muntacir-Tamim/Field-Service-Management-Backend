@@ -1,0 +1,14 @@
+/*
+  Warnings:
+
+  - The values [ADMIN_CREATED] on the enum `AuditAction` will be removed. If these variants are still used in the database, this will fail.
+
+*/
+-- AlterEnum
+BEGIN;
+CREATE TYPE "AuditAction_new" AS ENUM ('SERVICE_REQUEST_CREATED', 'SERVICE_REQUEST_STATUS_CHANGED', 'ASSIGNMENT_CREATED', 'ASSIGNMENT_CONFIRMED', 'ASSIGNMENT_CANCELLED', 'ASSIGNMENT_RESCHEDULED', 'WORK_ORDER_STATUS_CHANGED', 'INVOICE_CREATED', 'PAYMENT_INITIATED', 'PAYMENT_PAID', 'PAYMENT_FAILED', 'PAYMENT_CANCELLED', 'PAYMENT_REFUNDED', 'TECHNICIAN_REVIEWED', 'SKILL_CREATED', 'SKILL_UPDATED', 'SKILL_DELETED', 'FEEDBACK_DELETED', 'USER_BLOCKED', 'USER_UNBLOCKED', 'USER_DELETED', 'USER_PROFILE_UPDATED');
+ALTER TABLE "audit_logs" ALTER COLUMN "action" TYPE "AuditAction_new" USING ("action"::text::"AuditAction_new");
+ALTER TYPE "AuditAction" RENAME TO "AuditAction_old";
+ALTER TYPE "AuditAction_new" RENAME TO "AuditAction";
+DROP TYPE "public"."AuditAction_old";
+COMMIT;

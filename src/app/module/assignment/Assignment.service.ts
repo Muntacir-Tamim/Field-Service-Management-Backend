@@ -147,6 +147,14 @@ const ensureTechnicianEligible = async (tx: Tx, technicianId: string) => {
   return technician;
 };
 
+// Row-level lock on the technician. Two requests that try to book the SAME
+// technician now run one after another (the 2nd waits until the 1st commits),
+// so ensureNoConflict() below always sees the latest data.
+// The DB exclusion constraint "no_technician_overlap" is the final safety net.
+const lockTechnician = async (tx: Tx, technicianId: string) => {
+  await tx.$queryRaw`SELECT "id" FROM "technicians" WHERE "id" = ${technicianId} FOR UPDATE`;
+};
+
 const ensureNoConflict = async (
   tx: Tx,
   technicianId: string,
@@ -154,6 +162,8 @@ const ensureNoConflict = async (
   end: Date,
   excludeAssignmentId?: string,
 ) => {
+  await lockTechnician(tx, technicianId);
+
   const conflict = await tx.assignment.findFirst({
     where: {
       technicianId,
@@ -173,25 +183,63 @@ const ensureNoConflict = async (
   }
 };
 
+// Collects message / code / meta / cause of an error into one string,
+// so Postgres error codes can be detected however Prisma wraps them.
+const collectErrorText = (error: unknown, depth = 0): string => {
+  if (!error || depth > 4) return "";
+  if (typeof error === "string") return error;
+  if (typeof error !== "object") return String(error);
+
+  const e = error as Record<string, unknown>;
+  let meta = "";
+  try {
+    meta = JSON.stringify(e.meta ?? {});
+  } catch {
+    meta = "";
+  }
+
+  return [
+    typeof e.message === "string" ? e.message : "",
+    typeof e.code === "string" ? e.code : "",
+    meta,
+    collectErrorText(e.cause, depth + 1),
+  ]
+    .filter(Boolean)
+    .join(" ");
+};
+
+// Converts DB constraint violations (race-condition losers) into clean 409 errors
 const withConstraintErrors = async <T>(fn: () => Promise<T>): Promise<T> => {
   try {
     return await fn();
   } catch (error) {
-    const e = error as { message?: string; code?: string; meta?: unknown };
-    const text = `${e?.message ?? ""} ${e?.code ?? ""} ${JSON.stringify(e?.meta ?? {})}`;
+    if (error instanceof AppError) throw error;
 
-    if (text.includes("no_technician_overlap") || text.includes("23P01")) {
+    const text = collectErrorText(error);
+
+    // exclusion_violation (23P01) => technician double-booked
+    if (
+      text.includes("no_technician_overlap") ||
+      text.includes("23P01") ||
+      text.includes("exclusion constraint")
+    ) {
       throw new AppError(
         httpStatus.CONFLICT,
         "Technician already has a visit in this time slot",
       );
     }
-    if (text.includes("one_active_assignment_per_request")) {
+
+    // unique_violation (23505 / P2002) => request already has an active assignment
+    if (
+      text.includes("one_active_assignment_per_request") ||
+      (text.includes("P2002") && text.includes("serviceRequestId"))
+    ) {
       throw new AppError(
         httpStatus.CONFLICT,
         "This service request already has an active assignment",
       );
     }
+
     throw error;
   }
 };

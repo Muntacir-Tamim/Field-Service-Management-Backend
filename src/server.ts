@@ -4,7 +4,7 @@ import { startVisitReminderJob } from "./app/jobs/visitReminder.job";
 import { transporter } from "./app/lib/nodemailer";
 import { prisma } from "./app/lib/prisma";
 import { redisClient } from "./app/lib/redis";
-import { seedTesterAdmin, seedTesterTechnician } from "./app/utils/seed";
+import { seedAdmin, seedTechnician } from "./app/utils/seed";
 
 const PORT = config.port;
 
@@ -19,8 +19,8 @@ const main = async () => {
     await transporter.verify();
     console.log("Nodemailer Connected Successfully.");
 
-    await seedTesterTechnician();
-    await seedTesterAdmin();
+    await seedTechnician();
+    await seedAdmin();
     startVisitReminderJob();
 
     app.listen(PORT, () => {
