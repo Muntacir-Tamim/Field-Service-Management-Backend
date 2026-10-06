@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "6911f063-5425-4cac-ae04-5fd53ed2e399",
     "name": "Field Service Management API",
-    "description": "# Field Service Management API\n\nPostman collection for the Field Service Management backend (`/api/v1`).\n\n## Setup (2 minutes)\n1. Open the **Variables** tab of this collection.\n2. Set `baseUrl` (default `http://localhost:5000/api/v1`).\n3. Fill the **password** variables with the values from your `.env` (seeded accounts: admin, technician). Emails are pre-filled with the example values, change them if yours differ.\n4. Run the requests in **0. Login** for the roles you need.\n\nEvery request already uses the token of its role (`customerToken`, `adminToken`, ...), so you can jump between roles without logging in again. IDs (`serviceRequestId`, `assignmentId`, `workOrderId`, `paymentId`...) are saved automatically by test scripts.\n\n## Happy path (in this order)\n| # | Role | Request |\n|---|---|---|\n| 1 | Customer | 1. Auth → Register customer → Verify email (OTP from email) |\n| 2 | Admin | 3. Skills → Create skill |\n| 3 | Customer | 5. Service Requests → Create service request |\n| 4 | Admin | Mark under review → Review: APPROVE |\n| 5 | Admin | 6. Assignments → Available technicians → Create assignment |\n| 6 | Technician | Confirm assignment (creates the work order) |\n| 7 | Admin | 7. Work Orders → Get work orders of a request (saves `workOrderId`) |\n| 8 | Technician | En route → Arrived → Start work → Add part → Service report → Complete work |\n| 9 | Admin | Verify work order |\n| 10 | Admin | 8. Payments → Create invoice |\n| 11 | Customer / Admin | Initiate bKash payment |\n| 12 | Customer | 9. Feedback → Create feedback |\n\n## Notes\n- The API accepts the token from a cookie **or** the `Authorization: Bearer` header, and prefers the cookie. A collection pre-request script clears cookies so the per-role Bearer token is always used.\n- Technician needs to be **approved** (4. Technicians → Review application) and **available** before they can be assigned.\n- Time slots for assignments are generated automatically (tomorrow, 2 hours).\n",
+    "description": "# Field Service Management API\n\nPostman collection for the Field Service Management backend (`/api/v1`).\n\n## Setup (2 minutes)\n1. Open the **Variables** tab of this collection.\n2. Set `baseUrl` (default `http://localhost:5000/api/v1`).\n3. Fill the **password** variables with the values from your `.env` (seeded accounts: admin, technician). Emails are pre-filled with the example values, change them if yours differ.\n4. Run the requests in **0. Login** for the roles you need.\n\nEvery request already uses the token of its role (`customerToken`, `adminToken`, ...), so you can jump between roles without logging in again. IDs (`serviceRequestId`, `assignmentId`, `workOrderId`, `paymentId`...) are saved automatically by test scripts.\n\n## Happy path (in this order)\n| # | Role | Request |\n|---|---|---|\n| 1 | Customer | 1. Auth → Register customer → Verify email (OTP from email) |\n| 2 | Admin | 3. Skills → Create skill |\n| 3 | Customer | 5. Service Requests → Create service request |\n| 4 | Admin | Mark under review → Review: APPROVE |\n| 5 | Admin | 6. Assignments → Available technicians → Create assignment |\n| 6 | Technician | Confirm assignment (creates the work order) |\n| 7 | Admin | 7. Work Orders → Get work orders of a request (saves `workOrderId`) |\n| 8 | Technician | En route → Arrived → Start work → Add part → Service report → Complete work |\n| 9 | Admin | Verify work order |\n| 10 | Admin | 8. Payments → Create invoice |\n| 11 | Customer / Admin | Initiate bKash payment |\n| 12 | Customer | 9. Feedback → Create feedback |\n| 13 | Admin | 12. Admin - Users / 13. Admin - Audit Logs (user management, audit trail) |\n\n## Notes\n- The API accepts the token from a cookie **or** the `Authorization: Bearer` header, and prefers the cookie. A collection pre-request script clears cookies so the per-role Bearer token is always used.\n- Technician needs to be **approved** (4. Technicians → Review application) and **available** before they can be assigned.\n- Time slots for assignments are generated automatically (tomorrow, 2 hours).\n\n- Roles: **CUSTOMER**, **TECHNICIAN**, **ADMIN** (3 fixed roles, enforced by role middleware). Wrong role => `403`, no token => `401`.\n- Every response uses `{ success, message, data, meta? }` on success and `{ success: false, message, errors: [] }` on error.\n- bKash payments: `Initiate bKash payment` returns a `bkashURL`. Open it in a browser, finish the sandbox payment, and bKash redirects to `/payment/callback`, where the server verifies the payment with bKash before marking it PAID.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -126,6 +126,14 @@
     },
     {
       "key": "slotEnd",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "auditLogId",
       "value": ""
     }
   ],
@@ -435,6 +443,44 @@
           ]
         },
         {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** Any logged-in user\n\nBlacklists the access token (and the refresh token if sent) in Redis and clears the cookies.\n\n> Uses `{{accessToken}}` (not a role token) so your saved role tokens keep working. To test it, first run **Refresh token** (it saves `accessToken`), then run this request. After logout, that token is rejected with 401.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Get me",
           "request": {
             "method": "GET",
@@ -526,14 +572,14 @@
       "name": "2. User",
       "item": [
         {
-          "name": "Upload profile image",
+          "name": "Get my profile",
           "request": {
-            "method": "PATCH",
+            "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/user/profile-image",
+              "raw": "{{baseUrl}}/user/me",
               "host": ["{{baseUrl}}"],
-              "path": ["user", "profile-image"]
+              "path": ["user", "me"]
             },
             "auth": {
               "type": "bearer",
@@ -545,7 +591,107 @@
                 }
               ]
             },
-            "description": "**Access:** CUSTOMER\n\nAny logged-in user. Multipart, file field name: `profileImage`.",
+            "description": "**Access:** Any logged-in user\n\nReturns the profile of the logged-in user together with the role-specific profile (customer / technician / admin). Change the token in the Authorization tab to test other roles."
+          },
+          "response": []
+        },
+        {
+          "name": "Update my profile (customer)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "me"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** CUSTOMER\n\nValidation is role-wise and strict: `email`, `role`, `status` and `password` are rejected. At least one field is required.\n\nTechnician body: `name, contactNumber, gender, address, bio, experienceYears`.\nAdmin body: `name, contactNumber, department`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Customer Updated\",\n  \"contactNumber\": \"+8801700000000\",\n  \"gender\": \"MALE\",\n  \"address\": \"House 1, Road 2\",\n  \"city\": \"Chattogram\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update my profile (technician)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "me"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{technicianToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** TECHNICIAN\n\nTechnician-specific fields.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Technician Updated\",\n  \"bio\": \"Electrician with 5 years of experience\",\n  \"experienceYears\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload profile image",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user/me/profile-image",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "me", "profile-image"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** Any logged-in user (CUSTOMER / TECHNICIAN / ADMIN)\n\nMultipart, file field name: `profileImage` (image only, max 5 MB). Uploaded to Cloudinary.",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -3561,6 +3707,332 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "12. Admin - Users",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true,
+                  "description": "max 100"
+                },
+                {
+                  "key": "searchTerm",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "role",
+                  "value": "CUSTOMER",
+                  "disabled": true,
+                  "description": "CUSTOMER | TECHNICIAN | ADMIN"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIVE",
+                  "disabled": true,
+                  "description": "ACTIVE | BLOCKED | DELETED"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** ADMIN\n\nPaginated user list with search, filtering and sorting. Saves the first user id to `userId`.\n\n`searchTerm` matches name, email and contact number. `sortBy`: createdAt | name | email."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('userId', value);",
+                  "  console.log('userId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Block user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "{{userId}}", "status"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** ADMIN\n\nBlocks a user. `reason` (min 5 chars) is **required** when blocking. Writes an audit log (`USER_BLOCKED`). Do not block your own admin account.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"BLOCKED\",\n  \"reason\": \"Repeated policy violation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unblock user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "{{userId}}", "status"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** ADMIN\n\nRestores a blocked user. Writes an audit log (`USER_UNBLOCKED`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete user (soft delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "{{userId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** ADMIN\n\nSoft delete: sets `isDeleted` / `deletedAt` and status `DELETED`. The record stays in the database. Writes an audit log (`USER_DELETED`)."
+          },
+          "response": []
+        }
+      ],
+      "description": "Admin only: user management. Every status change is written to the audit log."
+    },
+    {
+      "name": "13. Admin - Audit Logs",
+      "item": [
+        {
+          "name": "List audit logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "audit-logs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                },
+                {
+                  "key": "action",
+                  "value": "PAYMENT_PAID",
+                  "disabled": true,
+                  "description": "e.g. USER_BLOCKED, ASSIGNMENT_CREATED, WORK_ORDER_STATUS_CHANGED"
+                },
+                {
+                  "key": "entityType",
+                  "value": "Payment",
+                  "disabled": true
+                },
+                {
+                  "key": "entityId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "actorId",
+                  "value": "{{userId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "actorRole",
+                  "value": "ADMIN",
+                  "disabled": true,
+                  "description": "CUSTOMER | TECHNICIAN | ADMIN"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31",
+                  "disabled": true
+                },
+                {
+                  "key": "searchTerm",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** ADMIN\n\nPaginated, filterable audit trail of critical actions (who changed what, old/new value). Saves the first log id to `auditLogId`.\n\n`from` / `to` accept ISO dates."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const d = body && body.data;",
+                  "const list = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : null);",
+                  "let value = null;",
+                  "try { value = list && list[0] && list[0].id; } catch (e) {}",
+                  "if (value) {",
+                  "  pm.collectionVariables.set('auditLogId', value);",
+                  "  console.log('auditLogId =', value);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get audit log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/audit-logs/{{auditLogId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "audit-logs", "{{auditLogId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "**Access:** ADMIN\n\nSingle audit log entry with actor details."
+          },
+          "response": []
+        }
+      ],
+      "description": "Admin only: read-only audit trail."
     }
   ]
 }
